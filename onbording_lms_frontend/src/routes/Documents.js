@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import DocumentList from '../components/documents/DocumentList';
 
-import { loadAckState, saveAckState, isAllCompleted } from '../store/documentsStore';
+import { loadAckState, saveAckState } from '../store/documentsStore';
+import { getDocumentsStatus } from '../utils/documentsStatus';
 import { postAcknowledgements } from '../utils/api';
 
 // PUBLIC_INTERFACE
@@ -9,13 +10,29 @@ export default function Documents() {
   /** Documents onboarding page simplified to list and action only (viewer block removed). */
   const [state, setState] = useState(() => loadAckState());
   const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved
+  const [docStatus, setDocStatus] = useState(() => getDocumentsStatus());
+
+  // Refresh statuses from localStorage on mount and when returning back from doc pages
+  useEffect(() => {
+    const onFocus = () => setDocStatus(getDocumentsStatus());
+    // initial sync
+    onFocus();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   const items = useMemo(
     () => [state.code_of_conduct, state.nda, state.internship_letter],
     [state.code_of_conduct, state.nda, state.internship_letter]
   );
 
-  const canContinue = isAllCompleted(state);
+  // Derive canContinue from documentsStatus store
+  const allDone =
+    docStatus.codeOfConduct === 'Completed' &&
+    docStatus.nda === 'Completed' &&
+    docStatus.offerLetter === 'Completed';
+
+  const canContinue = allDone;
 
   const handleSubmit = async () => {
     setSubmitStatus('saving');
@@ -120,7 +137,12 @@ export default function Documents() {
             justifyContent: 'flex-end',
           }}
         >
-          {submitStatus === 'saved' && (
+          {!canContinue && (
+            <span role="note" aria-live="polite" style={{ color: '#6b7280', marginRight: 'auto', fontSize: 12 }}>
+              Complete Code of Conduct, NDA, and Offer Letter to continue.
+            </span>
+          )}
+          {submitStatus === 'saved' && canContinue && (
             <span role="status" style={{ color: '#10B981', marginRight: 'auto', fontSize: 12 }}>
               Saved locally. You can proceed.
             </span>
@@ -140,6 +162,7 @@ export default function Documents() {
             }}
             aria-disabled={!canContinue || submitStatus === 'saving'}
             aria-label="Continue after acknowledging documents"
+            title={canContinue ? 'Continue' : 'Finish all documents to enable'}
           >
             {submitStatus === 'saving' ? 'Saving...' : 'Continue'}
           </button>

@@ -85,6 +85,15 @@ Navigate to "Documents", review the required documents (Code of Conduct, NDA, an
 
 Local state is stored in `localStorage`. If a backend is set, acknowledgements are posted on a best-effort basis; if posting fails, local data remains the source of truth.
 
+### Code of Conduct: Export as PDF
+
+On the Code of Conduct page, after entering your name and uploading your signature image, you can click "Export as PDF" to download a PDF containing:
+- The policy content
+- Your entered employee name
+- An embedded thumbnail of your uploaded signature
+
+This uses a purely client-side approach (html2canvas + jsPDF via CDN). If those libraries cannot load (e.g., offline or blocked), the app will fall back to the browser’s print dialog (`window.print()`), which uses a print-friendly layout. No backend calls or environment changes are required.
+
 ## Testing
 
 Basic tests cover routing presence, documents page rendering, and protected route behavior.

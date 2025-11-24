@@ -6,6 +6,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * A themed page that renders the DigitalT3 Code of Conduct and collects a local-only acknowledgment
  * with Employee Name (text) and Signature upload (file). Data is validated on submit and persisted
  * to localStorage under a namespaced key. No backend calls are made.
+ *
+ * This component also supports exporting a printable PDF that embeds the employee's name and signature image.
+ * It uses a client-side approach (prefer html2canvas + jsPDF when available, otherwise falls back to window.print()).
  */
 const STORAGE_KEY = "code_of_conduct_ack_v1";
 
@@ -32,6 +35,26 @@ function saveLocal(state) {
   }
 }
 
+// Attempt to lazy-load html2canvas and jsPDF without adding hard deps.
+// If not present, we will fall back to print().
+async function ensurePdfLibs() {
+  try {
+    const [{ default: html2canvas }, jsPDFModule] = await Promise.all([
+      import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js")
+        .then((m) => ({ default: window.html2canvas || m.default }))
+        .catch(() => ({ default: window.html2canvas })),
+      import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js")
+        .then(() => window.jspdf)
+        .catch(() => window.jspdf),
+    ]);
+    const jsPDF = jsPDFModule?.jsPDF || jsPDFModule?.default?.jsPDF || window.jspdf?.jsPDF;
+    if (!html2canvas || !jsPDF) throw new Error("Libraries not available");
+    return { html2canvas, jsPDF };
+  } catch {
+    return { html2canvas: null, jsPDF: null };
+  }
+}
+
 const CodeOfConduct = () => {
   const [name, setName] = useState("");
   const [fileName, setFileName] = useState("");
@@ -39,9 +62,14 @@ const CodeOfConduct = () => {
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   // Keep track of an object URL for thumbnail preview to avoid memory leaks
   const objectUrlRef = useRef(null);
+
+  // A ref to the exportable content area
+  const exportRef = useRef(null);
 
   // hydrate from localStorage on first render
   useEffect(() => {
@@ -144,6 +172,95 @@ const CodeOfConduct = () => {
     }
   };
 
+  // PDF Export handler
+  const handleExportPdf = async () => {
+    setExportError("");
+    if (!isValid) {
+      setExportError("Enter your name and upload a signature before exporting.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const { html2canvas, jsPDF } = await ensurePdfLibs();
+      const node = exportRef.current;
+
+      // Fallback to print if libraries failed to load
+      if (!html2canvas || !jsPDF || !node) {
+        window.print();
+        setExporting(false);
+        return;
+      }
+
+      // Temporarily add a class to improve capture fidelity
+      node.classList.add("print-ready");
+
+      const canvas = await html2canvas(node, {
+        backgroundColor: getComputedStyle(document.body).getPropertyValue("--bg-primary") || "#ffffff",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({
+        orientation: "p",
+        unit: "pt",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculate dimensions while maintaining aspect ratio
+      const contentWidth = pageWidth - 48; // margins
+      const ratio = canvas.width / canvas.height;
+      const contentHeight = contentWidth / ratio;
+
+      let y = 24;
+      const x = 24;
+
+      if (contentHeight < pageHeight - 48) {
+        pdf.addImage(imgData, "PNG", x, y, contentWidth, contentHeight, undefined, "FAST");
+      } else {
+        // Add multi-page if needed
+        let remainingHeight = contentHeight;
+        let imgY = y;
+        const pageCanvasHeight = (pageHeight - 48) * (canvas.height / contentHeight);
+
+        // Create slices
+        const pageCanvas = document.createElement("canvas");
+        const pageCtx = pageCanvas.getContext("2d");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = pageCanvasHeight;
+
+        let sY = 0;
+        while (remainingHeight > 0) {
+          pageCtx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(canvas, 0, sY, canvas.width, pageCanvasHeight, 0, 0, canvas.width, pageCanvasHeight);
+          const pageImg = pageCanvas.toDataURL("image/png");
+          pdf.addImage(pageImg, "PNG", x, 24, contentWidth, (contentWidth / ratio), undefined, "FAST");
+          remainingHeight -= (pageHeight - 48);
+          sY += pageCanvasHeight;
+          if (remainingHeight > 0) pdf.addPage();
+        }
+      }
+
+      const safeName = String(name || "employee").trim().replace(/\s+/g, "_");
+      pdf.save(`Code_of_Conduct_${safeName}.pdf`);
+
+      node.classList.remove("print-ready");
+    } catch (e) {
+      setExportError("Could not generate PDF. Using browser print as fallback.");
+      try {
+        window.print();
+      } catch {
+        // ignore
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Revoke object URL on unmount to prevent leaks
   useEffect(() => {
     return () => {
@@ -156,8 +273,20 @@ const CodeOfConduct = () => {
 
   return (
     <main style={{ padding: 20 }}>
+      <style>
+        {`
+          /* Print-friendly styles for fallback window.print() */
+          @media print {
+            .btn, input[type="file"], #app-navbar, .theme-toggle { display: none !important; }
+            main { padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+          }
+          /* When capturing canvas, tighten up spacing slightly to improve fidelity */
+          .print-ready * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        `}
+      </style>
       <div className="card" style={{ padding: 20 }}>
-        <div style={{ lineHeight: "1.6" }}>
+        <div ref={exportRef} style={{ lineHeight: "1.6", background: "var(--bg-secondary)", color: "var(--text-primary)" }}>
           <h1 style={{ marginTop: 0, color: "var(--text-primary)" }}>DigitalT3 Code of Conduct</h1>
 
           <h2>Introduction</h2>
@@ -323,138 +452,208 @@ const CodeOfConduct = () => {
           <h3 style={{ marginTop: 24 }}>Acknowledgement</h3>
           <p>I understand and agree to abide by the code of conduct.</p>
 
-          <form onSubmit={handleSubmit} noValidate>
-            <div
-              className="card"
-              style={{
-                padding: 16,
-                marginTop: 8,
-                display: "grid",
-                gap: 12,
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border-color)",
-                borderRadius: 12,
-              }}
-            >
-              <label style={{ display: "block" }}>
-                <span style={{ display: "block", marginBottom: 6 }}>Employee Name</span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setSaved(false);
-                    setError("");
-                  }}
-                  placeholder="Enter your full name"
-                  aria-required="true"
-                  aria-invalid={!name || name.trim().length < 2}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid var(--border-color)",
-                    outline: "none",
-                  }}
-                />
-              </label>
-
+          {/* PDF-visible block containing name and signature thumbnail */}
+          <section
+            aria-label="Signature summary"
+            style={{
+              marginTop: 12,
+              padding: 12,
+              border: "1px solid var(--border-color)",
+              borderRadius: 10,
+              background: "var(--bg-secondary)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <label htmlFor="signature-file" style={{ display: "block", marginBottom: 6 }}>
-                  Signature Upload
-                </label>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <input
-                    id="signature-file"
-                    type="file"
-                    accept="image/*,.png,.jpg,.jpeg,.pdf"
-                    onChange={handleFileChange}
-                    aria-required="true"
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Employee Name</div>
+                <div style={{ fontWeight: 600 }}>{name || "—"}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Signature</div>
+                {fileDataUrl ? (
+                  <img
+                    src={fileDataUrl}
+                    alt="Signature thumbnail"
                     style={{
-                      display: "block",
-                      padding: "8px 0",
+                      maxHeight: 80,
+                      border: "1px solid var(--border-color)",
+                      borderRadius: 8,
+                      padding: 4,
+                      background: "var(--bg-secondary)",
                     }}
                   />
-                  {/* Thumbnail preview if we have an image object URL */}
-                  {objectUrlRef.current ? (
-                    <img
-                      src={objectUrlRef.current}
-                      alt="Signature preview"
-                      style={{
-                        maxHeight: 80,
-                        border: "1px solid var(--border-color)",
-                        borderRadius: 8,
-                        padding: 4,
-                        background: "var(--bg-secondary)",
-                      }}
-                    />
-                  ) : null}
-                </div>
-                {/* Display chosen file name */}
-                <div
-                  aria-live="polite"
-                  style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary)" }}
-                >
-                  {fileName ? `Selected: ${fileName}` : "No file selected"}
-                </div>
-              </div>
-
-              {error && (
-                <div
-                  role="alert"
-                  className="card"
-                  style={{
-                    borderLeft: "4px solid var(--error)",
-                    padding: "8px 10px",
-                    background: "rgba(239,68,68,0.06)",
-                    color: "var(--text-primary)",
-                    fontSize: 14,
-                  }}
-                >
-                  {error}
-                </div>
-              )}
-
-              {saved && (
-                <div
-                  role="status"
-                  className="card"
-                  style={{
-                    borderLeft: "4px solid var(--success)",
-                    padding: "8px 10px",
-                    background: "rgba(16,185,129,0.08)",
-                    color: "var(--text-primary)",
-                    fontSize: 14,
-                  }}
-                >
-                  Saved locally. Thank you!
-                </div>
-              )}
-
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="submit"
-                  className="btn"
-                  disabled={!isValid || submitting}
-                  aria-disabled={!isValid || submitting}
-                  aria-label="Save acknowledgment locally"
-                  style={{
-                    background: isValid ? "var(--primary)" : "#93C5FD",
-                    color: "white",
-                    minWidth: 140,
-                  }}
-                >
-                  {submitting ? "Saving..." : "Submit"}
-                </button>
+                ) : (
+                  <span style={{ color: "var(--text-secondary)" }}>No signature uploaded</span>
+                )}
               </div>
             </div>
-          </form>
-
-          <p style={{ marginTop: 12, fontSize: 12, color: "var(--text-secondary)" }}>
-            Note: Your name and signature image are stored only in your browser under{" "}
-            <code>{STORAGE_KEY}</code>. No data is sent to any server from this page.
-          </p>
+          </section>
         </div>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div
+            className="card"
+            style={{
+              padding: 16,
+              marginTop: 8,
+              display: "grid",
+              gap: 12,
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-color)",
+              borderRadius: 12,
+            }}
+          >
+            <label style={{ display: "block" }}>
+              <span style={{ display: "block", marginBottom: 6 }}>Employee Name</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setSaved(false);
+                  setError("");
+                }}
+                placeholder="Enter your full name"
+                aria-required="true"
+                aria-invalid={!name || name.trim().length < 2}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border-color)",
+                  outline: "none",
+                }}
+              />
+            </label>
+
+            <div>
+              <label htmlFor="signature-file" style={{ display: "block", marginBottom: 6 }}>
+                Signature Upload
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <input
+                  id="signature-file"
+                  type="file"
+                  accept="image/*,.png,.jpg,.jpeg"
+                  onChange={handleFileChange}
+                  aria-required="true"
+                  style={{
+                    display: "block",
+                    padding: "8px 0",
+                  }}
+                />
+                {/* Thumbnail preview if we have an image object URL */}
+                {objectUrlRef.current ? (
+                  <img
+                    src={objectUrlRef.current}
+                    alt="Signature preview"
+                    style={{
+                      maxHeight: 80,
+                      border: "1px solid var(--border-color)",
+                      borderRadius: 8,
+                      padding: 4,
+                      background: "var(--bg-secondary)",
+                    }}
+                  />
+                ) : null}
+              </div>
+              {/* Display chosen file name */}
+              <div
+                aria-live="polite"
+                style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary)" }}
+              >
+                {fileName ? `Selected: ${fileName}` : "No file selected"}
+              </div>
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="card"
+                style={{
+                  borderLeft: "4px solid var(--error)",
+                  padding: "8px 10px",
+                  background: "rgba(239,68,68,0.06)",
+                  color: "var(--text-primary)",
+                  fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {saved && (
+              <div
+                role="status"
+                className="card"
+                style={{
+                  borderLeft: "4px solid var(--success)",
+                  padding: "8px 10px",
+                  background: "rgba(16,185,129,0.08)",
+                  color: "var(--text-primary)",
+                  fontSize: 14,
+                }}
+              >
+                Saved locally. Thank you!
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleExportPdf}
+                disabled={!isValid || exporting}
+                aria-disabled={!isValid || exporting}
+                aria-label="Export as PDF"
+                title={isValid ? "Export as PDF" : "Enter name and upload signature to enable export"}
+                style={{
+                  background: isValid ? "var(--secondary)" : "#FCD34D",
+                  color: "#111827",
+                  minWidth: 160,
+                }}
+              >
+                {exporting ? "Exporting..." : "Export as PDF"}
+              </button>
+
+              <button
+                type="submit"
+                className="btn"
+                disabled={!isValid || submitting}
+                aria-disabled={!isValid || submitting}
+                aria-label="Save acknowledgment locally"
+                style={{
+                  background: isValid ? "var(--primary)" : "#93C5FD",
+                  color: "white",
+                  minWidth: 140,
+                }}
+              >
+                {submitting ? "Saving..." : "Submit"}
+              </button>
+            </div>
+
+            {exportError && (
+              <div
+                role="alert"
+                className="card"
+                style={{
+                  borderLeft: "4px solid var(--error)",
+                  padding: "8px 10px",
+                  background: "rgba(239,68,68,0.06)",
+                  color: "var(--text-primary)",
+                  fontSize: 14,
+                }}
+              >
+                {exportError}
+              </div>
+            )}
+          </div>
+        </form>
+
+        <p style={{ marginTop: 12, fontSize: 12, color: "var(--text-secondary)" }}>
+          Note: Your name and signature image are stored only in your browser under{" "}
+          <code>{STORAGE_KEY}</code>. No data is sent to any server from this page.
+        </p>
       </div>
       <footer
         style={{ marginTop: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 12 }}

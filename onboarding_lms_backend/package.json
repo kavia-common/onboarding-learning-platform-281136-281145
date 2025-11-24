@@ -1,0 +1,38 @@
+{
+  "name": "onboarding_lms_backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend for Onboarding LMS (Express + PostgreSQL) - scaffold with migrations and seeds.",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node ./src/db/migrate.js || echo 'run SQL migrations manually'",
+    "seed": "node ./src/db/seed.js || echo 'run SQL seed manually'",
+    "lint": "echo \"No lint configured\"",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "pg": "^8.13.1",
+    "pino": "^9.3.2",
+    "pino-http": "^10.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "express",
+    "postgresql",
+    "lms",
+    "onboarding"
+  ],
+  "license": "MIT"
+}

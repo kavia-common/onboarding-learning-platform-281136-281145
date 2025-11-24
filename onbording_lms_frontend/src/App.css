@@ -1,23 +1,29 @@
-/* CSS Variables for Theme Management */
+/* CSS Variables for Theme Management + Ocean Professional Theme */
 :root {
-  /* Light theme colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --text-primary: #282c34;
-  --text-secondary: #61dafb;
-  --border-color: #e9ecef;
-  --button-bg: #007bff;
+  --primary: #2563EB;
+  --secondary: #F59E0B;
+  --success: #10B981;
+  --error: #EF4444;
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --button-bg: var(--primary);
   --button-text: #ffffff;
 }
 
 [data-theme="dark"] {
-  /* Dark theme colors */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #282c34;
-  --text-primary: #ffffff;
-  --text-secondary: #61dafb;
-  --border-color: #404040;
-  --button-bg: #0056b3;
+  --primary: #3b82f6;
+  --secondary: #f59e0b;
+  --success: #10B981;
+  --error: #ef4444;
+  --bg-primary: #0b1220;
+  --bg-secondary: #111827;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --border-color: #1f2937;
+  --button-bg: var(--primary);
   --button-text: #ffffff;
 }
 
@@ -54,7 +60,7 @@
 }
 
 .App-link {
-  color: var(--text-secondary);
+  color: var(--primary);
   transition: color 0.3s ease;
 }
 
@@ -65,32 +71,58 @@
   background-color: var(--button-bg);
   color: var(--button-text);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.2);
 }
 
 .theme-toggle:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  opacity: 0.9;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);
+  opacity: 0.95;
 }
 
 .theme-toggle:active {
   transform: translateY(0);
 }
 
+.btn {
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.2);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);
+}
+
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+}
+
+/* Accessibility focus outline */
+:focus-visible {
+  outline: 3px solid rgba(37,99,235,.5);
+  outline-offset: 2px;
+}
+
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Responsive design for mobile */

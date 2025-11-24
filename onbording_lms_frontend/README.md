@@ -4,8 +4,9 @@ This project provides a minimal React template with a clean, modern UI and minim
 
 ## Features
 
+- **Documents Onboarding**: View and acknowledge Code of Conduct and NDA with electronic signature.
 - **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
+- **Modern UI**: Clean, responsive design with Ocean Professional styling
 - **Fast**: Minimal dependencies for quick loading times
 - **Simple**: Easy to understand and modify
 
@@ -24,59 +25,34 @@ Launches the test runner in interactive watch mode.
 
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Builds the app for production to the `build` folder.
 
-## Customization
+## Documents Onboarding
 
-### Colors
+Open the app and navigate to the "Documents" section from the top navigation. Review the Code of Conduct and NDA, then acknowledge by:
+- Checking the agreement box
+- Typing your full name
+- Selecting the date
 
-The main brand colors are defined as CSS variables in `src/App.css`:
+A local completion state is stored in your browser (localStorage). If a backend is configured, acknowledgements are also posted to the server.
 
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
+### Optional Backend
+
+Set the following environment variable to enable backend posting:
+
+```
+REACT_APP_API_BASE=https://api.example.com
+```
+
+When set, the app will POST to `${REACT_APP_API_BASE}/acknowledgements` with a payload:
+
+```json
+{
+  "userId": "mock-or-todo",
+  "documents": [{ "key": "code_of_conduct", "acceptedAt": "...", "name": "Code of Conduct", "signatureName": "..." }]
 }
 ```
 
-### Components
+If the request fails, the app gracefully falls back to local storage only.
 
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
-
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
-
-## Learn More
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+See `.env.example` for additional optional variables.

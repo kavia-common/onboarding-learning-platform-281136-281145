@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { setDocumentCompleted } from "../utils/documentsStatus";
 
 /**
  * PUBLIC_INTERFACE
@@ -56,6 +58,7 @@ async function ensurePdfLibs() {
 }
 
 const CodeOfConduct = () => {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileDataUrl, setFileDataUrl] = useState("");
@@ -167,6 +170,13 @@ const CodeOfConduct = () => {
         savedAt: new Date().toISOString(),
       });
       setSaved(true);
+      // Update document status store and navigate to Documents page
+      try {
+        setDocumentCompleted("codeOfConduct");
+      } catch {
+        // ignore storage issues
+      }
+      navigate("/documents", { replace: true });
     } finally {
       setSubmitting(false);
     }

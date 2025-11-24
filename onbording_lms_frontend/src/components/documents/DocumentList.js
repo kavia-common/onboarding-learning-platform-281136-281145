@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getDocumentsStatus } from '../../utils/documentsStatus';
 
 const statusColors = {
   pending: '#EF4444',
@@ -28,6 +29,7 @@ export default function DocumentList({ items, onOpen }) {
     }
   };
 
+  const statuses = useMemo(() => getDocumentsStatus(), []);
   return (
     <div
       style={{
@@ -42,7 +44,18 @@ export default function DocumentList({ items, onOpen }) {
     >
       <h2 style={{ marginTop: 0, color: '#111827' }}>Documents</h2>
       {items.map((doc) => {
-        const isDone = Boolean(doc.acceptedAt && doc.signatureName);
+        // Map items keys (code_of_conduct, nda, internship_letter) to store keys
+        const storeKey =
+          doc.key === 'code_of_conduct'
+            ? 'codeOfConduct'
+            : doc.key === 'nda'
+            ? 'nda'
+            : doc.key === 'internship_letter'
+            ? 'offerLetter'
+            : null;
+
+        const status = storeKey && statuses[storeKey] ? statuses[storeKey] : 'Pending';
+        const isDone = status === 'Completed';
         const deepLink = routeFor(doc.key);
 
         // Accessible label for the action

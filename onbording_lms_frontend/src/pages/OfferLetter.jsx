@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { setDocumentCompleted } from "../utils/documentsStatus";
 
 /**
  * PUBLIC_INTERFACE
@@ -32,6 +34,7 @@ function saveLocal(state) {
 }
 
 const OfferLetter = () => {
+  const navigate = useNavigate();
   const [sigFileName, setSigFileName] = useState("");
   const [sigDataUrl, setSigDataUrl] = useState("");
   const [error, setError] = useState("");
@@ -104,6 +107,12 @@ const OfferLetter = () => {
           savedAt: new Date().toISOString(),
         });
         setSaved(true);
+        try {
+          setDocumentCompleted("offerLetter");
+        } catch {
+          // ignore storage issues
+        }
+        navigate("/documents", { replace: true });
       };
       reader.readAsDataURL(file);
     } catch {

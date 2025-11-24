@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { setDocumentCompleted } from "../utils/documentsStatus";
 
 /**
  * PUBLIC_INTERFACE
@@ -41,6 +43,7 @@ const NDAAgreement = ({
   dt3SignerTitle = "CEO",
   dt3Date = "",
 }) => {
+  const navigate = useNavigate();
   // controlled states
   const [consultantName, setConsultantName] = useState(propName);
   const [consultantTitle, setConsultantTitle] = useState(propTitle);
@@ -164,6 +167,12 @@ const NDAAgreement = ({
       savedAt: new Date().toISOString(),
     });
     setSaved(true);
+    try {
+      setDocumentCompleted("nda");
+    } catch {
+      // ignore storage errors
+    }
+    navigate("/documents", { replace: true });
   };
 
   // cleanup object URL on unmount

@@ -11,6 +11,7 @@ import { CoursesProvider, useCourses } from './store/courseStore';
 import { ProgressProvider, useProgress } from './store/progressStore';
 // Ensure CodeOfConduct is imported from the pages directory for the /code-of-conduct route
 import CodeOfConduct from './pages/CodeOfConduct.jsx';
+import NDAAgreement from './pages/NDAAgreement.jsx';
 
 // Read preview flag once at module scope to avoid re-renders
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
@@ -52,6 +53,9 @@ function NavBar() {
         </Link>
         <Link className="btn" to="/code-of-conduct" aria-label="Go to code of conduct" style={{ textDecoration: 'none' }}>
           Code of Conduct
+        </Link>
+        <Link className="btn" to="/nda" aria-label="Go to NDA" style={{ textDecoration: 'none' }}>
+          NDA
         </Link>
         {!PREVIEW_ONLY && flags.onboarding && (
           <Link className="btn" to="/onboarding" aria-label="Go to onboarding" style={{ textDecoration: 'none' }}>
@@ -532,6 +536,7 @@ function App() {
                     <Route path="/" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Home />} />
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/code-of-conduct" element={<CodeOfConduct />} />
+                    <Route path="/nda" element={<NDAAgreement />} />
 
                     {/* Other routes are either enabled or redirected to /documents in preview mode */}
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />

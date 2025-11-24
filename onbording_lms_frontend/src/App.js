@@ -22,6 +22,8 @@ function NavBar() {
   const { user } = useAuth();
   const { flags } = useFeatureFlags();
 
+  const isAdmin = Boolean(user?.role === 'admin');
+
   return (
     <nav
       role="navigation"
@@ -42,13 +44,17 @@ function NavBar() {
         <Link to={PREVIEW_ONLY ? '/documents' : '/'} style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
           Onboarding LMS
         </Link>
-        {/* Removed document-related and onboarding links from top nav to simplify navigation */}
+        {isAdmin && (
+          <Link to="/admin" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
+            Admin
+          </Link>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!PREVIEW_ONLY && user ? (
           <>
             <span aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              {user.email}
+              {user.email}{isAdmin ? ' • admin' : ''}
             </span>
             <Link className="btn" to="/logout" aria-label="Logout" style={{ textDecoration: 'none' }}>
               Logout
@@ -324,6 +330,109 @@ function OnboardingWizard() {
   );
 }
 
+function AdminRouteGuard({ children }) {
+  // PUBLIC_INTERFACE
+  /** Guard that allows only admin users */
+  const { user } = useAuth();
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
+// PUBLIC_INTERFACE
+function AdminPage() {
+  /** Admin inbox page reading dt3_admin_inbox and rendering submissions */
+  const [inbox, setInbox] = useState([]);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('dt3_admin_inbox');
+      const parsed = raw ? JSON.parse(raw) : [];
+      setInbox(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setInbox([]);
+    }
+  }, []);
+
+  const empty = inbox.length === 0;
+
+  return (
+    <main style={{ padding: 20 }}>
+      <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <h1 style={{ marginTop: 0 }}>Admin Inbox</h1>
+        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+          Showing latest submissions from employees. Data is stored locally in your browser under key "dt3_admin_inbox".
+        </p>
+      </div>
+
+      {empty ? (
+        <div className="card" role="status" style={{ padding: 16 }}>
+          No submissions yet.
+        </div>
+      ) : (
+        <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr style={{ background: 'linear-gradient(90deg, rgba(37,99,235,0.08), rgba(249,250,251,0.6))' }}>
+                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted By</th>
+                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted At</th>
+                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Code of Conduct</th>
+                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>NDA</th>
+                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Offer Letter</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inbox.map((entry, idx) => {
+                  const ts = entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : '—';
+                  const coc = entry.codeOfConduct;
+                  const nda = entry.nda;
+                  const offer = entry.offerLetter;
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: 12 }}>{entry.submittedBy || 'Unknown'}</td>
+                      <td style={{ padding: 12, color: 'var(--text-secondary)' }}>{ts}</td>
+                      <td style={{ padding: 12 }}>
+                        <DocPreview doc={coc} title="Code of Conduct" />
+                      </td>
+                      <td style={{ padding: 12 }}>
+                        <DocPreview doc={nda} title="NDA" />
+                      </td>
+                      <td style={{ padding: 12 }}>
+                        <DocPreview doc={offer} title="Offer Letter" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+// Helper to present a doc block with signature info and optional image
+function DocPreview({ doc, title }) {
+  if (!doc) return <span style={{ color: 'var(--text-secondary)' }}>No data</span>;
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div style={{ fontWeight: 600 }}>{title}</div>
+      {doc.signatureName && <div>Signed by: {doc.signatureName}</div>}
+      {doc.acceptedAt && <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Accepted: {new Date(doc.acceptedAt).toLocaleString()}</div>}
+      {/* Signature images if present */}
+      {doc.signatureImage && (
+        <img
+          src={doc.signatureImage}
+          alt={`${title} signature`}
+          style={{ maxHeight: 70, border: '1px solid var(--border-color)', borderRadius: 8, padding: 2, background: 'var(--bg-secondary)' }}
+        />
+      )}
+    </div>
+  );
+}
+
 // PUBLIC_INTERFACE
 function App() {
   /** App entry with Router and providers */
@@ -417,6 +526,15 @@ function App() {
                     <Route path="/code-of-conduct" element={<CodeOfConduct />} />
                     <Route path="/nda" element={<NDAAgreement />} />
                     <Route path="/offer-letter" element={<OfferLetter />} />
+                    {/* Admin route: guard inline to avoid separate component file */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminPage />
+                        </AdminRouteGuard>
+                      }
+                    />
 
                     {/* Other routes are either enabled or redirected to /documents in preview mode */}
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />

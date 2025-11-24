@@ -38,6 +38,82 @@ export default function Documents() {
     setSubmitStatus('saving');
     saveAckState(state);
 
+    // Build detailed payload from individual localStorage keys
+    const nowIso = new Date().toISOString();
+
+    // Code of Conduct data
+    let codeOfConduct = null;
+    try {
+      const raw = window.localStorage.getItem('code_of_conduct_ack_v1');
+      const data = raw ? JSON.parse(raw) : null;
+      if (data) {
+        codeOfConduct = {
+          employeeName: data.name || '',
+          signatureImage: data.signatureFileDataUrl || '',
+          signatureFileName: data.signatureFileName || '',
+          acceptedAt: state?.code_of_conduct?.acceptedAt || data.savedAt || nowIso,
+          signatureName: state?.code_of_conduct?.signatureName || data.name || '',
+        };
+      }
+    } catch { /* ignore */ }
+
+    // NDA data
+    let nda = null;
+    try {
+      const raw = window.localStorage.getItem('nda_agreement_form_v1');
+      const data = raw ? JSON.parse(raw) : null;
+      if (data) {
+        nda = {
+          consultantName: data.consultantName || '',
+          consultantTitle: data.consultantTitle || '',
+          consultantDate: data.consultantDate || '',
+          signatureImage: data.sigDataUrl || '',
+          signatureFileName: data.sigFileName || '',
+          acceptedAt: state?.nda?.acceptedAt || data.savedAt || nowIso,
+          signatureName: state?.nda?.signatureName || data.consultantName || '',
+        };
+      }
+    } catch { /* ignore */ }
+
+    // Offer Letter data
+    let offerLetter = null;
+    try {
+      const raw = window.localStorage.getItem('offer_letter_signature_v1');
+      const data = raw ? JSON.parse(raw) : null;
+      if (data) {
+        offerLetter = {
+          signatureImage: data.sigDataUrl || '',
+          signatureFileName: data.sigFileName || '',
+          acceptedAt: state?.internship_letter?.acceptedAt || data.savedAt || nowIso,
+          signatureName: state?.internship_letter?.signatureName || '',
+        };
+      }
+    } catch { /* ignore */ }
+
+    // Identify submitter from session
+    let submittedBy = 'anonymous';
+    try {
+      const authRaw = window.localStorage.getItem('lms_auth');
+      const auth = authRaw ? JSON.parse(authRaw) : null;
+      submittedBy = auth?.user?.email || 'anonymous';
+    } catch { /* ignore */ }
+
+    // Append to admin inbox
+    try {
+      const inboxRaw = window.localStorage.getItem('dt3_admin_inbox');
+      const inbox = inboxRaw ? JSON.parse(inboxRaw) : [];
+      const entry = {
+        submittedBy,
+        submittedAt: nowIso,
+        codeOfConduct,
+        nda,
+        offerLetter,
+      };
+      const next = Array.isArray(inbox) ? [entry, ...inbox] : [entry];
+      window.localStorage.setItem('dt3_admin_inbox', JSON.stringify(next));
+    } catch { /* ignore */ }
+
+    // Keep existing local acknowledgement posting (no-op without API base)
     const payload = {
       userId: 'local-session',
       documents: [state.code_of_conduct, state.nda, state.internship_letter].map((d) => ({
@@ -47,8 +123,8 @@ export default function Documents() {
         acceptedAt: d.acceptedAt,
       })),
     };
-
     await postAcknowledgements(payload);
+
     setSubmitStatus('saved');
     setTimeout(() => setSubmitStatus('idle'), 3000);
   };

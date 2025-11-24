@@ -40,6 +40,24 @@ To reset local data:
 
 Note: The password hashing used is a simple base64 digest intended only for demonstration. Do not use this setup in production.
 
+## Admin Role and Inbox (frontend-only)
+
+- A default admin account is seeded automatically on first load if no admin exists:
+  - Email: admin@dt3.local
+  - Password: admin123
+  - Role: admin
+- Only users with role === "admin" can access the Admin page at /admin. Non-admins are redirected.
+- Admin submissions inbox is stored in localStorage under key: dt3_admin_inbox.
+  - Each entry: { submittedBy, submittedAt, codeOfConduct, nda, offerLetter }
+  - Code of Conduct stores employee name and signature image (data URL) as captured on that page.
+  - NDA stores consultant name/title/date and signature image (data URL).
+  - Offer Letter stores the signature image (data URL).
+- An "Admin" link appears in the navbar only if the current session user has role "admin".
+- To manually promote an existing user to admin, you can, from app code via useAuth().makeAdmin(email) or via DevTools by editing lms_users_v1 to set role: "admin" for the desired user.
+
+Resetting admin inbox:
+- In browser console: localStorage.removeItem('dt3_admin_inbox')
+
 ## Optional Environment Variables
 
 These variables are supported but not required:

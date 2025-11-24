@@ -5,7 +5,7 @@ Modern React app with router-driven layout, onboarding wizard, documents acknowl
 ## Features
 
 - Router-driven pages: `/`, `/onboarding`, `/documents`, `/catalog`, `/course/:id`, `/dashboard`, `/login`, `/register`, `/logout`
-- Documents Onboarding: View and acknowledge Code of Conduct and NDA with electronic signature
+- Documents Onboarding: View and acknowledge Code of Conduct, NDA, and Internship Letter with electronic signature
 - Onboarding Wizard: Integrates the Documents step with welcome and next steps
 - Auth Store: JWT handling with mock fallback when no API is configured
 - Course and Progress Stores: LocalStorage with optional API sync
@@ -37,10 +37,27 @@ Copy `.env.example` to `.env` and set as needed:
 - `REACT_APP_HEALTHCHECK_PATH` — (optional)
 - `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`
 - `REACT_APP_EXPERIMENTS_ENABLED` — (optional)
+- `REACT_APP_PREVIEW_DOCUMENTS_ONLY` — when set to `true`, the app runs in Preview mode limited to the Documents flow only (see below)
 
 If neither `REACT_APP_API_BASE` nor `REACT_APP_BACKEND_URL` is set:
 - Auth, Courses, and Progress stores use mock/localStorage behavior
 - Documents submissions are stored locally; attempts to post to server are skipped
+
+## Preview Mode: Documents Only
+
+To limit the running preview to only the Documents flow, set:
+
+```
+REACT_APP_PREVIEW_DOCUMENTS_ONLY=true
+```
+
+When enabled:
+- `/documents` becomes the default route
+- Direct access to other routes (`/`, `/onboarding`, `/catalog`, `/course/:id`, `/dashboard`, `/login`, `/register`, `/logout`) is redirected to `/documents`
+- Navigation links for those routes are hidden/disabled
+- A banner "Preview mode: Documents only" is shown below the navbar
+
+When `false` or unset, the app behaves normally with all routes available.
 
 ## API Conventions (when configured)
 
@@ -53,7 +70,7 @@ All requests use JSON.
 
 ## Documents Onboarding
 
-Navigate to "Documents", review both documents, and acknowledge:
+Navigate to "Documents", review the required documents (Code of Conduct, NDA, and Internship Letter), and acknowledge:
 - Check the agreement box
 - Type your full name
 - Select the date

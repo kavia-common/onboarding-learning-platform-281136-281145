@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import Documents from './routes/Documents';
 import { useAuth } from './store/authStore';
@@ -10,9 +10,12 @@ import { AuthProvider } from './store/authStore';
 import { CoursesProvider, useCourses } from './store/courseStore';
 import { ProgressProvider, useProgress } from './store/progressStore';
 
+// Read preview flag once at module scope to avoid re-renders
+const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
+
 // Layout components
 function NavBar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { flags } = useFeatureFlags();
 
   return (
@@ -32,28 +35,32 @@ function NavBar() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link to="/" style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
+        <Link to={PREVIEW_ONLY ? '/documents' : '/'} style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
           Onboarding LMS
         </Link>
-        <Link className="btn" to="/catalog" aria-label="Go to catalog" style={{ textDecoration: 'none' }}>
-          Catalog
-        </Link>
+        {!PREVIEW_ONLY && (
+          <>
+            <Link className="btn" to="/catalog" aria-label="Go to catalog" style={{ textDecoration: 'none' }}>
+              Catalog
+            </Link>
+          </>
+        )}
         <Link className="btn" to="/documents" aria-label="Go to documents" style={{ textDecoration: 'none' }}>
           Documents
         </Link>
-        {flags.onboarding && (
+        {!PREVIEW_ONLY && flags.onboarding && (
           <Link className="btn" to="/onboarding" aria-label="Go to onboarding" style={{ textDecoration: 'none' }}>
             Onboarding
           </Link>
         )}
-        {user && (
+        {!PREVIEW_ONLY && user && (
           <Link className="btn" to="/dashboard" aria-label="Go to dashboard" style={{ textDecoration: 'none' }}>
             Dashboard
           </Link>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {user ? (
+        {!PREVIEW_ONLY && user ? (
           <>
             <span aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
               {user.email}
@@ -63,14 +70,16 @@ function NavBar() {
             </Link>
           </>
         ) : (
-          <>
-            <Link className="btn" to="/login" aria-label="Login" style={{ textDecoration: 'none' }}>
-              Login
-            </Link>
-            <Link className="btn" to="/register" aria-label="Register" style={{ textDecoration: 'none' }}>
-              Register
-            </Link>
-          </>
+          !PREVIEW_ONLY && (
+            <>
+              <Link className="btn" to="/login" aria-label="Login" style={{ textDecoration: 'none' }}>
+                Login
+              </Link>
+              <Link className="btn" to="/register" aria-label="Register" style={{ textDecoration: 'none' }}>
+                Register
+              </Link>
+            </>
+          )
         )}
       </div>
     </nav>
@@ -78,6 +87,7 @@ function NavBar() {
 }
 
 function Sidebar() {
+  if (PREVIEW_ONLY) return null;
   return (
     <aside
       role="complementary"
@@ -104,6 +114,9 @@ function Footer() {
 }
 
 function Home() {
+  if (PREVIEW_ONLY) {
+    return <Navigate to="/documents" replace />;
+  }
   return (
     <main style={{ padding: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
@@ -131,12 +144,17 @@ function Home() {
 
 // Auth pages
 function Login() {
+  // Hooks must always be called
   const { login } = useAuth();
   const { push } = useToast();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
+
+  // Perform redirect afterwards if preview mode
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
   return (
     <main style={{ padding: 20 }}>
       <section className="card" style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -179,10 +197,14 @@ function Login() {
 }
 
 function Register() {
+  // Hooks first
   const { register } = useAuth();
   const { push } = useToast();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
+
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
   return (
     <main style={{ padding: 20 }}>
       <section className="card" style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -226,17 +248,25 @@ function Register() {
 
 function Logout() {
   const { logout } = useAuth();
-  useEffect(()=>{
+
+  // Always call hooks, then handle side-effects/redirects
+  useEffect(() => {
+    if (PREVIEW_ONLY) {
+      // In preview mode, send to /documents
+      window.location.replace('/documents');
+      return;
+    }
     logout();
-    // redirect to home after logout
     window.location.replace('/');
-  },[logout]);
+  }, [logout]);
+
   return <main style={{ padding: 20 }} aria-live="polite">Logging out…</main>;
 }
 
 // Course catalog and course page (basic mock)
 function Catalog() {
   const { courses } = useCourses();
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
   return (
     <main style={{ padding: 20 }}>
       <h1>Course Catalog</h1>
@@ -261,6 +291,9 @@ function Course() {
   const courseId = pathname.split('/').pop();
   const { getCourse } = useCourses();
   const { getProgress, setProgress } = useProgress();
+
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
   const course = getCourse(courseId);
   const progress = getProgress(courseId);
   if (!course) return <main style={{ padding: 20 }}>Course not found</main>;
@@ -291,6 +324,9 @@ function Dashboard() {
   const { user } = useAuth();
   const { courses } = useCourses();
   const { getProgress } = useProgress();
+
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
   return (
     <main style={{ padding: 20 }}>
       <h1 style={{ marginTop: 0 }}>Welcome, {user?.email || 'User'}</h1>
@@ -320,6 +356,7 @@ function Dashboard() {
 // Onboarding wizard integrating Documents step
 function OnboardingWizard() {
   const [step, setStep] = useState(0);
+  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
   const steps = [
     { key: 'welcome', title: 'Welcome', content: (
       <div className="card" style={{ padding: 16 }}>
@@ -376,6 +413,28 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Banner for preview-only mode
+  const previewBanner = PREVIEW_ONLY ? (
+    <div
+      role="note"
+      aria-live="polite"
+      style={{
+        position: 'sticky',
+        top: 52,
+        zIndex: 11,
+        margin: '8px 16px',
+        background: '#EFF6FF',
+        color: '#1E3A8A',
+        border: '1px solid #93C5FD',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: 13
+      }}
+    >
+      Preview mode: Documents only
+    </div>
+  ) : null;
+
   return (
     <FeatureFlagsProvider>
       <ToastProvider>
@@ -385,6 +444,7 @@ function App() {
               <div className="App" style={{ textAlign: 'initial' }}>
                 <Router>
                   <NavBar />
+                  {previewBanner}
                   <button
                     className="theme-toggle"
                     onClick={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))}
@@ -393,23 +453,30 @@ function App() {
                     {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
                   </button>
                   <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/onboarding" element={<OnboardingWizard />} />
+                    {/* Default route changes under preview: redirect / to /documents */}
+                    <Route path="/" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Home />} />
                     <Route path="/documents" element={<Documents />} />
-                    <Route path="/catalog" element={<Catalog />} />
-                    <Route path="/course/:id" element={<Course />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/logout" element={<Logout />} />
+
+                    {/* Other routes are either enabled or redirected to /documents in preview mode */}
+                    <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
+                    <Route path="/catalog" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Catalog />} />
+                    <Route path="/course/:id" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Course />} />
+                    <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />
+                    <Route path="/register" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Register />} />
+                    <Route path="/logout" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Logout />} />
                     <Route
                       path="/dashboard"
                       element={
-                        <ProtectedRoute>
-                          <Dashboard />
-                        </ProtectedRoute>
+                        PREVIEW_ONLY ? (
+                          <Navigate to="/documents" replace />
+                        ) : (
+                          <ProtectedRoute>
+                            <Dashboard />
+                          </ProtectedRoute>
+                        )
                       }
                     />
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="*" element={<Navigate to={PREVIEW_ONLY ? '/documents' : '/'} replace />} />
                   </Routes>
                 </Router>
               </div>

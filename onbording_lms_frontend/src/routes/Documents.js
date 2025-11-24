@@ -7,10 +7,10 @@ import { postAcknowledgements } from '../utils/api';
 
 // PUBLIC_INTERFACE
 export default function Documents() {
-  /** Documents onboarding page with viewer, signature, and submission. */
+  /** Documents onboarding page with viewer, signature, and submission (frontend-only by default). */
   const [state, setState] = useState(() => loadAckState());
   const [activeKey, setActiveKey] = useState('code_of_conduct');
-  const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved | failed
+  const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved
 
   const items = useMemo(
     () => [state.code_of_conduct, state.nda, state.internship_letter],
@@ -39,7 +39,7 @@ export default function Documents() {
     saveAckState(state);
 
     const payload = {
-      userId: 'mock-or-todo',
+      userId: 'local-session',
       documents: [
         state.code_of_conduct,
         state.nda,
@@ -52,19 +52,10 @@ export default function Documents() {
       })),
     };
 
-    const res = await postAcknowledgements(payload);
-    if (res.ok) {
-      setSubmitStatus('saved');
-    } else {
-      // gracefully fallback to local storage only
-      setSubmitStatus({
-        state: 'failed',
-        message:
-          res?.message ||
-          `Could not reach backend${res?.url ? ` (${res.url})` : ''}${typeof res?.status === 'number' ? ` [status ${res.status}]` : ''}. Saved locally.`
-      });
-      setTimeout(() => setSubmitStatus('idle'), 4000);
-    }
+    // Best-effort post (no-op if API not configured), always treat as success
+    await postAcknowledgements(payload);
+    setSubmitStatus('saved');
+    setTimeout(() => setSubmitStatus('idle'), 3000);
   };
 
   const docMeta = {
@@ -88,8 +79,6 @@ export default function Documents() {
 
   const activeMeta = docMeta[activeKey];
   const activeState = state[activeKey];
-
-  const showEnvBanner = !process.env.REACT_APP_API_BASE;
 
   return (
     <main
@@ -124,24 +113,6 @@ export default function Documents() {
               Read and acknowledge all required documents. Continue is enabled once Code of Conduct, NDA, and the Internship Letter are signed.
             </p>
           </div>
-
-          {showEnvBanner && (
-            <div
-              role="note"
-              aria-live="polite"
-              style={{
-                background: '#FFFBEB',
-                border: '1px solid #F59E0B',
-                color: '#92400E',
-                borderRadius: 10,
-                padding: 12,
-                fontSize: 14,
-                marginBottom: 12,
-              }}
-            >
-              Backend not configured. Set REACT_APP_API_BASE to enable server acknowledgements. Using local save.
-            </div>
-          )}
 
           <DocumentList
             items={items}
@@ -190,7 +161,6 @@ export default function Documents() {
             src={activeMeta.src}
             ariaLabel={`${activeMeta.title} content`}
           />
-          
 
           <SignatureForm
             docKey={activeKey}
@@ -208,14 +178,9 @@ export default function Documents() {
               justifyContent: 'flex-end',
             }}
           >
-            {submitStatus?.state === 'failed' && (
-              <span role="status" style={{ color: '#EF4444', marginRight: 'auto' }}>
-                {submitStatus.message || 'Could not reach backend. Saved locally.'}
-              </span>
-            )}
             {submitStatus === 'saved' && (
               <span role="status" style={{ color: '#10B981', marginRight: 'auto' }}>
-                Acknowledgements submitted successfully.
+                Saved locally. You can proceed.
               </span>
             )}
             <button

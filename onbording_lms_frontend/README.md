@@ -1,14 +1,14 @@
 # Onboarding LMS Frontend
 
-Modern React app with router-driven layout, onboarding wizard, documents acknowledgment, basic course catalog, and auth with mock fallback.
+Modern React app with router-driven layout, onboarding wizard, documents acknowledgment, basic course catalog, and frontend-only authentication by default.
 
 ## Features
 
 - Router-driven pages: `/`, `/onboarding`, `/documents`, `/catalog`, `/course/:id`, `/dashboard`, `/login`, `/register`, `/logout`
 - Documents Onboarding: View and acknowledge Code of Conduct, NDA, and Internship Letter with electronic signature
 - Onboarding Wizard: Integrates the Documents step with welcome and next steps
-- Auth Store: JWT handling with mock fallback when no API is configured
-- Course and Progress Stores: LocalStorage with optional API sync
+- Auth Store: Frontend-only localStorage users and sessions by default (no backend required)
+- Course and Progress Stores: LocalStorage with optional API sync if configured
 - Feature Flags: via `REACT_APP_FEATURE_FLAGS` (JSON or comma list)
 - Ocean Professional theme with accessibility and responsive layout
 - Toast notifications for user feedback
@@ -21,12 +21,31 @@ In the project directory, run:
 - `npm test` — run tests
 - `npm run build` — production build
 
-## Environment Variables
+## Frontend-only mode (default)
 
-Copy `.env.example` to `.env` and set as needed:
+This app now runs fully in the browser without any backend:
 
-- `REACT_APP_API_BASE` — API base URL for REST backend (e.g., http://localhost:4000). If both are set, this takes precedence.
-- `REACT_APP_BACKEND_URL` — alternative API base (same as above if used). Trailing slashes are ignored automatically.
+- Registration and Login store users in localStorage (non-production hashing used for demo only).
+- Sessions are stored locally and used for protected routes.
+- Documents acknowledgements and progress are persisted locally.
+- No environment variables are required to use the app.
+
+To reset local data:
+- In your browser console, run:
+  - `localStorage.removeItem('lms_users_v1')`  // clears registered users
+  - `localStorage.removeItem('lms_auth')`      // clears current session
+  - `localStorage.removeItem('onboarding_documents_ack')` // clears document acknowledgements
+  - `localStorage.removeItem('lms_progress')` // clears progress
+- Or clear browser site data for the app origin.
+
+Note: The password hashing used is a simple base64 digest intended only for demonstration. Do not use this setup in production.
+
+## Optional Environment Variables
+
+These variables are supported but not required:
+
+- `REACT_APP_API_BASE` — API base URL for REST backend (e.g., http://localhost:4000).
+- `REACT_APP_BACKEND_URL` — alternative API base (same as above). Trailing slashes are ignored automatically.
 - `REACT_APP_FRONTEND_URL` — site URL (e.g., http://localhost:3000)
 - `REACT_APP_WS_URL` — websocket URL (optional)
 - `REACT_APP_NODE_ENV` — node env (optional)
@@ -35,22 +54,11 @@ Copy `.env.example` to `.env` and set as needed:
 - `REACT_APP_TRUST_PROXY` — (optional)
 - `REACT_APP_LOG_LEVEL` — (optional)
 - `REACT_APP_HEALTHCHECK_PATH` — (optional)
-- `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`.  
-  - To enable mock auth flow, include `mockApi` (e.g., `mockApi` or `{"mockApi": true}` or `["mockApi"]`). When enabled:
-    - Login and Registration return a mocked success response and set a local `mock-token`.
-    - A banner "Mock API mode is active" is shown in the UI.
-  - Remove `mockApi` (or set to false in JSON) to disable mock behavior.
+- `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`.
 - `REACT_APP_EXPERIMENTS_ENABLED` — (optional)
 - `REACT_APP_PREVIEW_DOCUMENTS_ONLY` — when set to `true`, the app runs in Preview mode limited to the Documents flow only (see below)
 
-If neither `REACT_APP_API_BASE` nor `REACT_APP_BACKEND_URL` is set:
-- Auth, Courses, and Progress stores use mock/localStorage behavior
-- Documents submissions are stored locally; attempts to post to server are skipped
-
-Mock auth mode:
-- You can force mocked auth regardless of API availability by adding `mockApi` to `REACT_APP_FEATURE_FLAGS`.
-- In mock mode, Login and Registration succeed with a simulated user and token, and a visible banner indicates mock mode.
-- Remove `mockApi` to return to real backend behavior.
+If an API base is configured, course catalog/progress and acknowledgements may be synced to the backend on a best-effort basis. Core flows continue to work locally even if API calls fail.
 
 ## Preview Mode: Documents Only
 
@@ -68,15 +76,6 @@ When enabled:
 
 When `false` or unset, the app behaves normally with all routes available.
 
-## API Conventions (when configured)
-
-- Auth: `POST /auth/login`, `POST /auth/register`
-- Courses: `GET /courses`
-- Progress: `PUT /progress/:courseId`
-- Documents: `POST /acknowledgements`
-
-All requests use JSON.
-
 ## Documents Onboarding
 
 Navigate to "Documents", review the required documents (Code of Conduct, NDA, and Internship Letter), and acknowledge:
@@ -84,15 +83,7 @@ Navigate to "Documents", review the required documents (Code of Conduct, NDA, an
 - Type your full name
 - Select the date
 
-Local state is stored in `localStorage`. If a backend is set, acknowledgements are posted as:
-```json
-{
-  "userId": "mock-or-todo",
-  "documents": [{ "key": "code_of_conduct", "acceptedAt": "...", "name": "Code of Conduct", "signatureName": "..." }]
-}
-```
-
-If posting fails, the app falls back to local storage.
+Local state is stored in `localStorage`. If a backend is set, acknowledgements are posted on a best-effort basis; if posting fails, local data remains the source of truth.
 
 ## Testing
 

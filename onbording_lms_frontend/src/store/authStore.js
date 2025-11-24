@@ -1,32 +1,39 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'lms_auth';
+const USERS_KEY = 'lms_users_v1'; // local user registry
 
-// Normalize API base and avoid double slashes
-function resolveApiBase() {
-  const raw =
-    process.env.REACT_APP_API_BASE ||
-    process.env.REACT_APP_BACKEND_URL ||
-    '';
-  const base = String(raw || '').trim();
-  if (!base) return '';
-  return base.replace(/\/+$/, '');
-}
-const API_BASE = resolveApiBase();
-
-function isMockEnabled() {
+/**
+ * Minimal non-production hashing for demo purposes.
+ * Not secure. Do NOT use in production.
+ */
+function demoDigest(input) {
   try {
-    const raw = process.env.REACT_APP_FEATURE_FLAGS || '';
-    if (!raw) return false;
-    const t = raw.trim();
-    if (t.startsWith('{') || t.startsWith('[')) {
-      const data = JSON.parse(t);
-      if (Array.isArray(data)) return data.includes('mockApi');
-      return Boolean(data.mockApi);
-    }
-    return raw.split(',').map(s => s.trim()).includes('mockApi');
+    const data = String(input || '');
+    // simple base64 of string + salt marker to avoid plain-text (non-secure)
+    return btoa(unescape(encodeURIComponent(`v1$${data}`)));
   } catch {
-    return false;
+    // fallback: return input marked
+    return `v1$${input}`;
+  }
+}
+
+function loadUsers() {
+  try {
+    const raw = window.localStorage.getItem(USERS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveUsers(users) {
+  try {
+    window.localStorage.setItem(USERS_KEY, JSON.stringify(users || {}));
+  } catch {
+    // ignore
   }
 }
 
@@ -34,49 +41,29 @@ const AuthContext = createContext(null);
 
 // PUBLIC_INTERFACE
 export function AuthProvider({ children }) {
-  /** Auth provider with JWT support and mock fallback when no backend configured */
+  /**
+   * PUBLIC_INTERFACE
+   * AuthProvider
+   * Pure frontend auth provider.
+   * - Registration/Login stored in localStorage (USERS_KEY)
+   * - Session stored in localStorage (STORAGE_KEY)
+   * - No backend or env vars required for core flows
+   */
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
 
+  // Load session on mount
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const existingUser = parsed?.user || null;
-          const existingToken = parsed?.token || '';
-          setUser(existingUser);
-          setToken(existingToken);
-
-          // If API configured and we have a token, verify it via /me
-          if (API_BASE && existingToken) {
-            try {
-              const res = await fetch(`${API_BASE}/me`, {
-                headers: { Authorization: `Bearer ${existingToken}` }
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (active) setUser(data.user);
-              } else {
-                // token invalid; clear
-                if (active) {
-                  setUser(null);
-                  setToken('');
-                  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: null, token: '' }));
-                }
-              }
-            } catch {
-              // network errors ignored; keep local state
-            }
-          }
-        }
-      } catch {
-        // ignore
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setUser(parsed?.user || null);
+        setToken(parsed?.token || '');
       }
-    })();
-    return () => { active = false; };
+    } catch {
+      // ignore
+    }
   }, []);
 
   const persist = useCallback((next) => {
@@ -87,102 +74,88 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    if (!API_BASE || isMockEnabled()) {
-      // mock success path when API not configured or mock flag enabled
-      const mock = { user: { id: 'mock-user', email }, token: 'mock-token' };
-      setUser(mock.user); setToken(mock.token); persist(mock);
-      return true;
-    }
-    const url = `${API_BASE}/auth/login`;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) return { ok: false, status: res.status, url };
-      const data = await res.json();
-      const auth = { user: data.user, token: data.token };
-      setUser(auth.user); setToken(auth.token); persist(auth);
-      return true;
-    } catch (err) {
-      const pageIsHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
-      const apiIsHttp = /^http:\/\//i.test(url);
-      const mixedContent = pageIsHttps && apiIsHttp;
-      return {
-        ok: false,
-        status: -1,
-        url,
-        message: `Network error while calling ${url}${mixedContent ? ' (blocked mixed content)' : ''}`
-      };
-    }
-  }, [persist]);
-
+  // PUBLIC_INTERFACE
   const register = useCallback(async (email, password) => {
-    // Basic client-side guard
-    const e = String(email || '').trim();
+    /**
+     * PUBLIC_INTERFACE
+     * register
+     * Registers a new user in localStorage-only registry.
+     * - Returns true on success
+     * - Returns { ok:false, message, errorCode? } on failure
+     * Non-production: password stored with a simple base64 digest for demo.
+     */
+    const e = String(email || '').trim().toLowerCase();
     const p = String(password || '');
+
     if (!e || !e.includes('@')) {
-      return { ok: false, message: 'Invalid email address.' };
+      return { ok: false, message: 'Please enter a valid email address.' };
     }
     if (p.length < 6) {
       return { ok: false, message: 'Password must be at least 6 characters.' };
     }
 
-    // Mock path enabled via feature flag OR when API base is not configured
-    if (isMockEnabled() || !API_BASE) {
-      const mock = { user: { id: 'mock-user', email: e }, token: 'mock-token' };
-      setUser(mock.user); setToken(mock.token); persist(mock);
-      return true;
+    const users = loadUsers();
+    if (users[e]) {
+      return { ok: false, message: 'Email already registered.', errorCode: 409 };
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email: e, password: p }),
-      });
+    const passwordHash = demoDigest(p);
+    const newUser = {
+      id: `local-${Date.now()}`,
+      email: e,
+      name: e,
+      passwordHash,
+      createdAt: new Date().toISOString(),
+    };
+    users[e] = newUser;
+    saveUsers(users);
 
-      if (!res.ok) {
-        let msg = 'Registration failed.';
-        let errorCode = res.status;
-        try {
-          const body = await res.json();
-          if (body?.error === 'EmailExists' || res.status === 409) {
-            msg = 'Email already registered.';
-            errorCode = 409;
-          } else if (body?.error === 'ValidationError' && Array.isArray(body.details) && body.details.length) {
-            msg = `Validation error: ${body.details[0]}`;
-          } else if (body?.error) {
-            msg = body.error;
-          }
-        } catch {
-          // ignore JSON parsing errors
-        }
-        return { ok: false, message: msg, errorCode };
-      }
+    // create a local session token (non-secure)
+    const session = { user: { id: newUser.id, email: newUser.email, name: newUser.name }, token: `local-${newUser.id}` };
+    setUser(session.user);
+    setToken(session.token);
+    persist(session);
 
-      const data = await res.json();
-      const auth = { user: data.user, token: data.token };
-      setUser(auth.user); setToken(auth.token); persist(auth);
-      return true;
-    } catch {
-      // If mock flag is on, allow flow to proceed on network errors too
-      if (isMockEnabled()) {
-        const mock = { user: { id: 'mock-user', email: e }, token: 'mock-token' };
-        setUser(mock.user); setToken(mock.token); persist(mock);
-        return true;
-      }
-      return { ok: false, message: 'Network error. Please check API availability.' };
-    }
+    return true;
   }, [persist]);
 
+  // PUBLIC_INTERFACE
+  const login = useCallback(async (email, password) => {
+    /**
+     * PUBLIC_INTERFACE
+     * login
+     * Authenticates against localStorage registry and sets local session.
+     * Returns true on success or false on invalid credentials.
+     */
+    const e = String(email || '').trim().toLowerCase();
+    const p = String(password || '');
+
+    const users = loadUsers();
+    const found = users[e];
+    if (!found) return false;
+    const hash = demoDigest(p);
+    if (hash !== found.passwordHash) return false;
+
+    const session = { user: { id: found.id, email: found.email, name: found.name }, token: `local-${found.id}` };
+    setUser(session.user);
+    setToken(session.token);
+    persist(session);
+    return true;
+  }, [persist]);
+
+  // PUBLIC_INTERFACE
   const logout = useCallback(() => {
-    setUser(null); setToken(''); persist({ user:null, token:'' });
+    /**
+     * PUBLIC_INTERFACE
+     * logout
+     * Clears local session.
+     */
+    setUser(null);
+    setToken('');
+    persist({ user: null, token: '' });
   }, [persist]);
 
-  const value = useMemo(()=>({ user, token, login, register, logout }), [user, token, login, register, logout]);
+  const value = useMemo(() => ({ user, token, register, login, logout }), [user, token, register, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

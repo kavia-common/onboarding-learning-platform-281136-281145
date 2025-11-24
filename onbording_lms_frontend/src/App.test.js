@@ -20,6 +20,9 @@ test('renders documents route', () => {
     </MemoryRouter>
   );
   expect(screen.getByText(/Onboarding Documents/i)).toBeInTheDocument();
+  // Ensure no extraction/download notice appears
+  expect(screen.queryByText(/extracted for accessibility/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Download original/i })).not.toBeInTheDocument();
 });
 
 test('redirects protected route to login when not authenticated', () => {

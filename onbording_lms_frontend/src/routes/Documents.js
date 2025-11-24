@@ -66,21 +66,18 @@ export default function Documents() {
     code_of_conduct: {
       title: 'Code of Conduct',
       src: '/src/content/code_of_conduct.md',
-      name: 'Code of Conduct',
-      download: '/attachments/20251124_122411_DT3_Code_of_Conduct_2025.pdf'
+      name: 'Code of Conduct'
     },
     nda: {
       title: 'Non-Disclosure Agreement (NDA)',
       src: '/src/content/nda.md',
-      name: 'Non-Disclosure Agreement (NDA)',
-      download: '/attachments/20251124_122412_DT3_NDA_2025(docx).txt'
+      name: 'Non-Disclosure Agreement (NDA)'
     },
     internship_letter: {
       title: 'Internship Offer Letter',
       src: '/src/content/internship_letter.md',
       name: 'Internship Offer Letter',
-      optional: false,
-      download: '/attachments/20251124_122412_DT3_Internsip_Letter_Nov2025(docx).txt'
+      optional: false
     },
   };
 
@@ -188,25 +185,7 @@ export default function Documents() {
             src={activeMeta.src}
             ariaLabel={`${activeMeta.title} content`}
           />
-          {activeMeta.download && (
-            <div className="card" role="note" style={{ padding: 12 }}>
-              <span style={{ color: '#6b7280', fontSize: 14 }}>
-                The text shown above is extracted for accessibility. If any formatting appears off, you can download the original file:
-              </span>
-              <div>
-                <a
-                  href={activeMeta.download}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn"
-                  style={{ textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
-                  aria-label={`Download original ${activeMeta.title}`}
-                >
-                  Download original
-                </a>
-              </div>
-            </div>
-          )}
+          
 
           <SignatureForm
             docKey={activeKey}

@@ -107,12 +107,6 @@ const OfferLetter = () => {
           savedAt: new Date().toISOString(),
         });
         setSaved(true);
-        try {
-          setDocumentCompleted("offerLetter");
-        } catch {
-          // ignore storage issues
-        }
-        navigate("/documents", { replace: true });
       };
       reader.readAsDataURL(file);
     } catch {
@@ -128,6 +122,28 @@ const OfferLetter = () => {
   };
 
   const hasSig = useMemo(() => Boolean(sigDataUrl || objectUrlRef.current), [sigDataUrl]);
+
+  // PUBLIC_INTERFACE
+  function handleSubmit() {
+    /** Validate presence of signature, persist, set status Completed and navigate to /documents */
+    setError("");
+    if (!hasSig) {
+      setError("Please upload a signature image before submitting.");
+      return;
+    }
+    // persist current state for safety
+    saveLocal({
+      sigFileName: sigFileName || "signature.png",
+      sigDataUrl: sigDataUrl || objectUrlRef.current || "",
+      savedAt: new Date().toISOString(),
+    });
+    try {
+      setDocumentCompleted("offerLetter");
+    } catch {
+      // ignore localStorage issues
+    }
+    navigate("/documents", { replace: true });
+  }
 
   return (
     <main style={{ padding: 20 }}>
@@ -299,6 +315,26 @@ const OfferLetter = () => {
               Signature saved locally under {STORAGE_KEY}.
             </div>
           )}
+
+          {/* Submit button to validate, persist and redirect */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleSubmit}
+              aria-label="Submit Offer Letter"
+              style={{
+                background: hasSig ? "var(--primary)" : "#93C5FD",
+                color: "white",
+                minWidth: 140,
+              }}
+              aria-disabled={!hasSig}
+              disabled={!hasSig}
+              title={hasSig ? "Submit" : "Upload your signature to enable submit"}
+            >
+              Submit
+            </button>
+          </div>
         </div>
       </form>
 

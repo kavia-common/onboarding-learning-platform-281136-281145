@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const statusColors = {
   pending: '#EF4444',
@@ -11,6 +12,22 @@ const statusColors = {
  * Shows a list of documents with status and a button to view details.
  */
 export default function DocumentList({ items, onOpen }) {
+  const navigate = useNavigate();
+
+  // map document keys to dedicated routes for deep viewing
+  const routeFor = (key) => {
+    switch (key) {
+      case 'code_of_conduct':
+        return '/code-of-conduct';
+      case 'nda':
+        return '/nda';
+      case 'internship_letter':
+        return '/offer-letter';
+      default:
+        return null;
+    }
+  };
+
   return (
     <div
       style={{
@@ -26,6 +43,11 @@ export default function DocumentList({ items, onOpen }) {
       <h2 style={{ marginTop: 0, color: '#111827' }}>Documents</h2>
       {items.map((doc) => {
         const isDone = Boolean(doc.acceptedAt && doc.signatureName);
+        const deepLink = routeFor(doc.key);
+
+        // Accessible label for the action
+        const aria = `View ${doc.name}`;
+
         return (
           <div
             role="listitem"
@@ -69,22 +91,45 @@ export default function DocumentList({ items, onOpen }) {
               </div>
             </div>
             <div>
-              <button
-                onClick={() => onOpen(doc.key)}
-                className="btn"
-                style={{
-                  background: '#2563EB',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
-                }}
-                aria-label={`View ${doc.name}`}
-              >
-                View
-              </button>
+              {deepLink ? (
+                // Prefer anchor semantics for navigation; style like a button
+                <Link
+                  to={deepLink}
+                  className="btn"
+                  aria-label={aria}
+                  style={{
+                    textDecoration: 'none',
+                    background: '#2563EB',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
+                    display: 'inline-block',
+                  }}
+                >
+                  View
+                </Link>
+              ) : (
+                // Fallback to original in-panel open behavior if no deep route mapping
+                <button
+                  onClick={() => onOpen(doc.key)}
+                  className="btn"
+                  style={{
+                    background: '#2563EB',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
+                  }}
+                  aria-label={aria}
+                >
+                  View
+                </button>
+              )}
             </div>
           </div>
         );

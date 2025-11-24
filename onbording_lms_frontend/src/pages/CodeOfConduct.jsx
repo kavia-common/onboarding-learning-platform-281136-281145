@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * PUBLIC_INTERFACE
@@ -40,6 +40,9 @@ const CodeOfConduct = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  // Keep track of an object URL for thumbnail preview to avoid memory leaks
+  const objectUrlRef = useRef(null);
+
   // hydrate from localStorage on first render
   useEffect(() => {
     const { name: n, signatureFileName, signatureFileDataUrl } = loadLocal();
@@ -53,16 +56,48 @@ const CodeOfConduct = () => {
   }, [name, fileName]);
 
   // Read file and store a DataURL for local-only persistence
+  // Additionally, create an object URL for a small preview thumbnail,
+  // validating that the file is an image. Revoke previous object URLs to avoid leaks.
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     setError("");
     setSaved(false);
+
+    // Clear any previous object URL
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
     if (!file) {
       setFileName("");
       setFileDataUrl("");
       return;
     }
+
+    // Validate type: must be an image
+    const isImage = file.type && file.type.startsWith("image/");
+    if (!isImage) {
+      setError("Please select a valid image file (PNG, JPG, JPEG, etc.).");
+      setFileName("");
+      setFileDataUrl("");
+      // clear the input selection if possible
+      e.target.value = "";
+      return;
+    }
+
     setFileName(file.name);
+
+    // Create object URL for quick preview
+    try {
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
+    } catch {
+      // ignore preview creation failure, we still try to read as data URL
+      objectUrlRef.current = null;
+    }
+
+    // Read as DataURL to persist in localStorage (existing behavior)
     try {
       const reader = new FileReader();
       reader.onload = () => {
@@ -74,6 +109,13 @@ const CodeOfConduct = () => {
       setError("Could not read the selected file. Please try another file.");
       setFileName("");
       setFileDataUrl("");
+      // cleanup preview on failure
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+      // clear the input selection if possible
+      e.target.value = "";
     }
   };
 
@@ -101,6 +143,16 @@ const CodeOfConduct = () => {
       setSubmitting(false);
     }
   };
+
+  // Revoke object URL on unmount to prevent leaks
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <main style={{ padding: 20 }}>
@@ -311,18 +363,33 @@ const CodeOfConduct = () => {
                 <label htmlFor="signature-file" style={{ display: "block", marginBottom: 6 }}>
                   Signature Upload
                 </label>
-                <input
-                  id="signature-file"
-                  type="file"
-                  accept="image/*,.png,.jpg,.jpeg,.pdf"
-                  onChange={handleFileChange}
-                  aria-required="true"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: "8px 0",
-                  }}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <input
+                    id="signature-file"
+                    type="file"
+                    accept="image/*,.png,.jpg,.jpeg,.pdf"
+                    onChange={handleFileChange}
+                    aria-required="true"
+                    style={{
+                      display: "block",
+                      padding: "8px 0",
+                    }}
+                  />
+                  {/* Thumbnail preview if we have an image object URL */}
+                  {objectUrlRef.current ? (
+                    <img
+                      src={objectUrlRef.current}
+                      alt="Signature preview"
+                      style={{
+                        maxHeight: 80,
+                        border: "1px solid var(--border-color)",
+                        borderRadius: 8,
+                        padding: 4,
+                        background: "var(--bg-secondary)",
+                      }}
+                    />
+                  ) : null}
+                </div>
                 {/* Display chosen file name */}
                 <div
                   aria-live="polite"
@@ -384,7 +451,7 @@ const CodeOfConduct = () => {
           </form>
 
           <p style={{ marginTop: 12, fontSize: 12, color: "var(--text-secondary)" }}>
-            Note: Your name and signature file are stored only in your browser under{" "}
+            Note: Your name and signature image are stored only in your browser under{" "}
             <code>{STORAGE_KEY}</code>. No data is sent to any server from this page.
           </p>
         </div>

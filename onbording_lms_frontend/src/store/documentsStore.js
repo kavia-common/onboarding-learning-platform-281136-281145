@@ -13,6 +13,12 @@ const defaultState = {
     acceptedAt: null,
     signatureName: '',
   },
+  internship_letter: {
+    key: 'internship_letter',
+    name: 'Internship Offer Letter',
+    acceptedAt: null,
+    signatureName: '',
+  },
 };
 
 // PUBLIC_INTERFACE

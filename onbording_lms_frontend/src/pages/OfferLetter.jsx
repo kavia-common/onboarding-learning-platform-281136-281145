@@ -1,14 +1,138 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * PUBLIC_INTERFACE
  * OfferLetter
  * A themed page that renders the Internship Offer Letter content in the Ocean Professional style.
  * This mirrors layout/styling conventions used by other pages (CodeOfConduct, NDA).
+ * Adds: signature image upload with live thumbnail preview, validation, persistence, and print-friendly layout.
  */
+const STORAGE_KEY = "offer_letter_signature_v1";
+
+function loadLocal() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { sigFileName: "", sigDataUrl: "" };
+    const parsed = JSON.parse(raw);
+    return {
+      sigFileName: parsed.sigFileName || "",
+      sigDataUrl: parsed.sigDataUrl || "",
+    };
+  } catch {
+    return { sigFileName: "", sigDataUrl: "" };
+  }
+}
+
+function saveLocal(state) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 const OfferLetter = () => {
+  const [sigFileName, setSigFileName] = useState("");
+  const [sigDataUrl, setSigDataUrl] = useState("");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const objectUrlRef = useRef(null);
+
+  // hydrate from localStorage
+  useEffect(() => {
+    const { sigFileName, sigDataUrl } = loadLocal();
+    setSigFileName(sigFileName);
+    setSigDataUrl(sigDataUrl);
+  }, []);
+
+  // revoke object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    setError("");
+    setSaved(false);
+
+    // cleanup old object URL
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
+    if (!file) {
+      setSigFileName("");
+      setSigDataUrl("");
+      saveLocal({ sigFileName: "", sigDataUrl: "" });
+      return;
+    }
+
+    if (!file.type || !file.type.startsWith("image/")) {
+      setError("Please upload a valid image file (PNG, JPG, JPEG, etc.).");
+      setSigFileName("");
+      setSigDataUrl("");
+      e.target.value = "";
+      saveLocal({ sigFileName: "", sigDataUrl: "" });
+      return;
+    }
+
+    setSigFileName(file.name);
+
+    // create object URL for fast preview
+    try {
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
+    } catch {
+      objectUrlRef.current = null;
+    }
+
+    // read as data URL to persist
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || "");
+        setSigDataUrl(dataUrl);
+        saveLocal({
+          sigFileName: file.name || "signature.png",
+          sigDataUrl: dataUrl,
+          savedAt: new Date().toISOString(),
+        });
+        setSaved(true);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setError("Could not read the selected image. Please try another file.");
+      setSigFileName("");
+      setSigDataUrl("");
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+      e.target.value = "";
+    }
+  };
+
+  const hasSig = useMemo(() => Boolean(sigDataUrl || objectUrlRef.current), [sigDataUrl]);
+
   return (
     <main style={{ padding: 20 }}>
+      <style>
+        {`
+          @media print {
+            .signature-inputs, .theme-toggle, input[type="file"], .btn { display: none !important; }
+            main { padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+            .sig-block { break-inside: avoid; page-break-inside: avoid; }
+          }
+        `}
+      </style>
+
       <div className="card" style={{ padding: 24, lineHeight: 1.7, color: "var(--text-primary)" }}>
         <h1 style={{ marginTop: 0, color: "var(--text-primary)" }}>Internship Offer Letter</h1>
 
@@ -62,7 +186,112 @@ const OfferLetter = () => {
           <p><strong>For DigitalT3</strong></p>
           <p>Rekha Dave<br/>People and Operations Lead.<br/>DigitalT3 Software Services Pvt. Ltd.</p>
         </div>
+
+        {/* Signature thumbnail at the bottom-right of the letter content */}
+        <div className="sig-block" style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
+          {hasSig ? (
+            <div style={{ textAlign: "right" }}>
+              <img
+                src={objectUrlRef.current || sigDataUrl}
+                alt="Signature thumbnail"
+                style={{
+                  maxHeight: 80,
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 8,
+                  padding: 4,
+                  background: "var(--bg-secondary)",
+                }}
+              />
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 6 }}>
+                {sigFileName || "signature.png"}
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "right", color: "var(--text-secondary)", fontSize: 12 }}>
+              No signature uploaded
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Controls for uploading signature - not printed */}
+      <form className="signature-inputs" onSubmit={(e) => e.preventDefault()} noValidate>
+        <div
+          className="card"
+          style={{
+            padding: 16,
+            marginTop: 12,
+            display: "grid",
+            gap: 10,
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-color)",
+            borderRadius: 12,
+          }}
+        >
+          <label htmlFor="offer-signature-file" style={{ display: "block" }}>
+            <span style={{ display: "block", marginBottom: 6 }}>Signature Image</span>
+            <input
+              id="offer-signature-file"
+              type="file"
+              accept="image/*,.png,.jpg,.jpeg"
+              onChange={handleFileChange}
+              aria-label="Upload signature image"
+              style={{ display: "block", padding: "8px 0" }}
+            />
+          </label>
+
+          {objectUrlRef.current ? (
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <img
+                src={objectUrlRef.current}
+                alt="Signature preview"
+                style={{
+                  maxHeight: 80,
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 8,
+                  padding: 4,
+                  background: "var(--bg-secondary)",
+                }}
+              />
+            </div>
+          ) : null}
+
+          <div aria-live="polite" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {sigFileName ? `Selected: ${sigFileName}` : "No file selected"}
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="card"
+              style={{
+                borderLeft: "4px solid var(--error)",
+                padding: "8px 10px",
+                background: "rgba(239,68,68,0.06)",
+                color: "var(--text-primary)",
+                fontSize: 14,
+              }}
+            >
+              {error}
+            </div>
+          )}
+          {saved && (
+            <div
+              role="status"
+              className="card"
+              style={{
+                borderLeft: "4px solid var(--success)",
+                padding: "8px 10px",
+                background: "rgba(16,185,129,0.08)",
+                color: "var(--text-primary)",
+                fontSize: 14,
+              }}
+            >
+              Signature saved locally under {STORAGE_KEY}.
+            </div>
+          )}
+        </div>
+      </form>
 
       <footer style={{ marginTop: 24, textAlign: "center", color: "var(--text-secondary)", fontSize: 12 }}>
         Ocean Professional theme • Primary #2563EB • Secondary #F59E0B

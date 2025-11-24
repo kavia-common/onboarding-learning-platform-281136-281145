@@ -21,8 +21,9 @@ const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').
 function NavBar() {
   const { user } = useAuth();
   const { flags } = useFeatureFlags();
-
   const isAdmin = Boolean(user?.role === 'admin');
+  // Lazy import to avoid circulars
+  const RoleBadge = React.useMemo(() => require('./components/ui/RoleBadge.jsx').default, []);
 
   return (
     <nav
@@ -53,8 +54,9 @@ function NavBar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!PREVIEW_ONLY && user ? (
           <>
+            <RoleBadge />
             <span aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              {user.email}{isAdmin ? ' • admin' : ''}
+              {user.email}
             </span>
             <Link className="btn" to="/logout" aria-label="Logout" style={{ textDecoration: 'none' }}>
               Logout
@@ -374,9 +376,15 @@ function AdminRouteGuard({ children }) {
 
 // PUBLIC_INTERFACE
 function AdminPage() {
-  /** Admin inbox page reading dt3_admin_inbox and rendering submissions */
+  /** Admin page including Role Management and inbox view */
+  const { user, updateCurrentUserRole, getCurrentUserRole } = useAuth();
+  const { push } = useToast();
   const [inbox, setInbox] = useState([]);
+  const [roleLoading, setRoleLoading] = useState(false);
+  const [currentRole, setCurrentRole] = useState(user?.role || 'user');
+
   useEffect(() => {
+    // Load inbox
     try {
       const raw = window.localStorage.getItem('dt3_admin_inbox');
       const parsed = raw ? JSON.parse(raw) : [];
@@ -386,12 +394,78 @@ function AdminPage() {
     }
   }, []);
 
+  useEffect(() => {
+    // Refresh role from Supabase metadata (if available)
+    let alive = true;
+    (async () => {
+      try {
+        const r = await getCurrentUserRole();
+        if (alive) setCurrentRole(r);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { alive = false; };
+  }, [getCurrentUserRole]);
+
+  const onChangeRole = async (e) => {
+    const newRole = e.target.value === 'admin' ? 'admin' : 'user';
+    setRoleLoading(true);
+    try {
+      const res = await updateCurrentUserRole(newRole);
+      if (res?.ok) {
+        setCurrentRole(newRole);
+        push({ type: 'success', message: `Role updated to ${newRole}` });
+      } else {
+        push({ type: 'error', message: res?.message || 'Failed to update role' });
+      }
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
   const empty = inbox.length === 0;
 
   return (
-    <main style={{ padding: 20 }}>
+    <main style={{ padding: 20, display: 'grid', gap: 12 }}>
+      <section className="card" aria-label="Role Management" style={{ padding: 16, display: 'grid', gap: 12 }}>
+        <h1 style={{ margin: 0 }}>Admin</h1>
+        <div style={{ color: 'var(--text-secondary)' }}>
+          Manage your role via Supabase user metadata. In frontend-only mode, this updates the local session.
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Signed in as</div>
+            <div style={{ fontWeight: 600 }}>{user?.email}</div>
+          </div>
+          <div aria-hidden="true" style={{ height: 24, width: 1, background: 'var(--border-color)' }} />
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Current role</span>
+            <select
+              value={currentRole}
+              onChange={onChangeRole}
+              disabled={roleLoading}
+              aria-label="Select role for current user"
+              style={{
+                padding: '8px 10px',
+                borderRadius: 10,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                minWidth: 160,
+              }}
+            >
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+        </div>
+        <div role="note" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          Admin-only access to this page is enforced by route guard (app_role === 'admin').
+        </div>
+      </section>
+
       <div className="card" style={{ padding: 16, marginBottom: 12 }}>
-        <h1 style={{ marginTop: 0 }}>Admin Inbox</h1>
+        <h2 style={{ marginTop: 0 }}>Admin Inbox</h2>
         <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
           Showing latest submissions from employees. Data is stored locally in your browser under key "dt3_admin_inbox".
         </p>

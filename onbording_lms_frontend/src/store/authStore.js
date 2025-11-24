@@ -307,9 +307,90 @@ export function AuthProvider({ children }) {
     }
   }, [user, token, persist]);
 
+  // PUBLIC_INTERFACE
+  const getCurrentUserRole = useCallback(async () => {
+    /**
+     * PUBLIC_INTERFACE
+     * getCurrentUserRole
+     * Fetches the latest role from Supabase user metadata (app_role).
+     * Falls back to in-memory user.role when Supabase is not available.
+     */
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return user?.role || 'user';
+    }
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      const meta = data?.user?.user_metadata || {};
+      return meta.app_role || 'user';
+    } catch {
+      return user?.role || 'user';
+    }
+  }, [user]);
+
+  // PUBLIC_INTERFACE
+  const updateCurrentUserRole = useCallback(async (newRole) => {
+    /**
+     * PUBLIC_INTERFACE
+     * updateCurrentUserRole(newRole)
+     * Attempts to update the authenticated user's role in Supabase metadata (app_role).
+     * Refreshes local session state on success. Returns { ok: true } or { ok: false, message }.
+     */
+    const role = newRole === 'admin' ? 'admin' : 'user';
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      // Local fallback: update localStorage registry and in-memory user
+      try {
+        if (!user?.email) return { ok: false, message: 'No authenticated user' };
+        const users = loadUsers();
+        const u = users[user.email];
+        if (u) {
+          u.role = role;
+          saveUsers(users);
+        }
+        const nextUser = { ...user, role };
+        setUser(nextUser);
+        persist({ user: nextUser, token });
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, message: (err && err.message) || 'Failed to update role locally' };
+      }
+    }
+
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { app_role: role },
+      });
+      if (error) {
+        return { ok: false, message: error.message };
+      }
+      // Map the returned user to local shape and persist
+      const mapped = toLocalUser(data?.user);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || '';
+      setUser(mapped);
+      setToken(accessToken);
+      persist({ user: mapped, token: accessToken });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: (err && err.message) || 'Failed to update role' };
+    }
+  }, [user, token, persist]);
+
   const value = useMemo(
-    () => ({ user, token, loading, register, login, logout, makeAdmin }),
-    [user, token, loading, register, login, logout, makeAdmin]
+    () => ({
+      user,
+      token,
+      loading,
+      register,
+      login,
+      logout,
+      makeAdmin,
+      getCurrentUserRole,
+      updateCurrentUserRole,
+    }),
+    [user, token, loading, register, login, logout, makeAdmin, getCurrentUserRole, updateCurrentUserRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

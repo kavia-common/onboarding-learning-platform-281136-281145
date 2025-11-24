@@ -42,13 +42,7 @@ function NavBar() {
         <Link to={PREVIEW_ONLY ? '/documents' : '/'} style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
           Onboarding LMS
         </Link>
-        {!PREVIEW_ONLY && (
-          <>
-            <Link className="btn" to="/catalog" aria-label="Go to catalog" style={{ textDecoration: 'none' }}>
-              Catalog
-            </Link>
-          </>
-        )}
+        {/* Catalog removed */}
         <Link className="btn" to="/documents" aria-label="Go to documents" style={{ textDecoration: 'none' }}>
           Documents
         </Link>
@@ -66,11 +60,7 @@ function NavBar() {
             Onboarding
           </Link>
         )}
-        {!PREVIEW_ONLY && user && (
-          <Link className="btn" to="/dashboard" aria-label="Go to dashboard" style={{ textDecoration: 'none' }}>
-            Dashboard
-          </Link>
-        )}
+        {/* Dashboard removed */}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!PREVIEW_ONLY && user ? (
@@ -110,9 +100,7 @@ function Sidebar() {
     >
       <h3 style={{ marginTop: 0 }}>Quick Links</h3>
       <ul style={{ lineHeight: 1.8, paddingLeft: 18, margin: 0 }}>
-        <li><Link to="/catalog">Course Catalog</Link></li>
         <li><Link to="/documents">Onboarding Docs</Link></li>
-        <li><Link to="/dashboard">My Dashboard</Link></li>
       </ul>
     </aside>
   );
@@ -137,15 +125,11 @@ function Home() {
         <section className="card" aria-label="Welcome" style={{ padding: 24 }}>
           <h1 style={{ marginTop: 0 }}>Welcome to the Onboarding LMS</h1>
           <p>
-            Use the Documents section to review and electronically sign required policies. Explore the Catalog to
-            find courses, or head to your Dashboard to track progress.
+            Use the Documents section to review and electronically sign required policies.
           </p>
           <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
             <Link className="btn" to="/documents" aria-label="Open Documents onboarding" style={{ textDecoration: 'none' }}>
               Go to Documents
-            </Link>
-            <Link className="btn" to="/catalog" aria-label="Open Catalog" style={{ textDecoration: 'none' }}>
-              Browse Catalog
             </Link>
           </div>
         </section>
@@ -161,7 +145,7 @@ function Login() {
   const { login } = useAuth();
   const { push } = useToast();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/documents';
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
 
@@ -240,7 +224,7 @@ function Register() {
       const result = await register(email.trim(), pwd.trim());
       if (result === true) {
         push({ type: 'success', message: 'Registration successful' });
-        window.location.replace('/dashboard');
+        window.location.replace('/documents');
       } else if (result && result.errorCode === 409) {
         push({ type: 'error', message: 'Email already registered. Try logging in.' });
       } else if (result && result.message) {
@@ -307,95 +291,7 @@ function Logout() {
   return <main style={{ padding: 20 }} aria-live="polite">Logging out…</main>;
 }
 
-// Course catalog and course page (basic mock)
-function Catalog() {
-  const { courses } = useCourses();
-  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
-  return (
-    <main style={{ padding: 20 }}>
-      <h1>Course Catalog</h1>
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-        {courses.map((c)=>(
-          <article key={c.id} className="card" aria-label={`Course ${c.title}`} style={{ padding: 16 }}>
-            <h3 style={{ marginTop: 0 }}>{c.title}</h3>
-            <p style={{ color: 'var(--text-secondary)', minHeight: 50 }}>{c.description}</p>
-            <Link to={`/course/${c.id}`} className="btn" style={{ textDecoration: 'none', display:'inline-block' }}>
-              View course
-            </Link>
-          </article>
-        ))}
-      </div>
-      <Footer />
-    </main>
-  );
-}
-
-function Course() {
-  const { pathname } = useLocation();
-  const courseId = pathname.split('/').pop();
-  const { getCourse } = useCourses();
-  const { getProgress, setProgress } = useProgress();
-
-  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
-
-  const course = getCourse(courseId);
-  const progress = getProgress(courseId);
-  if (!course) return <main style={{ padding: 20 }}>Course not found</main>;
-  const pct = progress?.percent || 0;
-  return (
-    <main style={{ padding: 20 }}>
-      <div className="card" style={{ padding: 20 }}>
-        <h1 style={{ marginTop: 0 }}>{course.title}</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>{course.description}</p>
-        <div aria-label="Progress" style={{ marginTop: 12 }}>
-          <div style={{ height: 10, background: '#e5e7eb', borderRadius: 8 }}>
-            <div style={{ width: `${pct}%`, height: 10, background: 'var(--primary)', borderRadius: 8 }} />
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{pct}% completed</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={()=> setProgress(course.id, Math.min(100, pct + 10))}>Mark +10%</button>
-          <button className="btn" onClick={()=> setProgress(course.id, 100)}>Complete</button>
-        </div>
-      </div>
-      <Footer />
-    </main>
-  );
-}
-
-// Dashboard
-function Dashboard() {
-  const { user } = useAuth();
-  const { courses } = useCourses();
-  const { getProgress } = useProgress();
-
-  if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
-
-  return (
-    <main style={{ padding: 20 }}>
-      <h1 style={{ marginTop: 0 }}>Welcome, {user?.email || 'User'}</h1>
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-        {courses.map((c)=> {
-          const pct = getProgress(c.id)?.percent || 0;
-          return (
-            <article key={c.id} className="card" style={{ padding: 16 }}>
-              <h3 style={{ marginTop: 0 }}>{c.title}</h3>
-              <p style={{ color: 'var(--text-secondary)' }}>{c.description}</p>
-              <div style={{ height: 8, background: '#e5e7eb', borderRadius: 8 }}>
-                <div style={{ width: `${pct}%`, height: 8, background: 'var(--primary)', borderRadius: 8 }} />
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 0' }}>{pct}% completed</p>
-              <Link to={`/course/${c.id}`} className="btn" style={{ marginTop: 8, textDecoration:'none', display:'inline-block' }}>
-                Continue
-              </Link>
-            </article>
-          );
-        })}
-      </div>
-      <Footer />
-    </main>
-  );
-}
+/* Catalog, Course, and Dashboard components removed */
 
 // Onboarding wizard integrating Documents step
 function OnboardingWizard() {
@@ -412,10 +308,7 @@ function OnboardingWizard() {
     { key: 'next', title: 'Next Steps', content: (
       <div className="card" style={{ padding: 16 }}>
         <h2 style={{ marginTop: 0 }}>Next Steps</h2>
-        <p>Enroll in required courses from the Catalog and start learning.</p>
-        <Link to="/catalog" className="btn" style={{ textDecoration: 'none', display: 'inline-block', marginTop: 8 }}>
-          Go to Catalog
-        </Link>
+        <p>Complete all required onboarding documents.</p>
       </div>
     )},
   ];
@@ -545,23 +438,9 @@ function App() {
 
                     {/* Other routes are either enabled or redirected to /documents in preview mode */}
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
-                    <Route path="/catalog" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Catalog />} />
-                    <Route path="/course/:id" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Course />} />
                     <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />
                     <Route path="/register" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Register />} />
                     <Route path="/logout" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Logout />} />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        PREVIEW_ONLY ? (
-                          <Navigate to="/documents" replace />
-                        ) : (
-                          <ProtectedRoute>
-                            <Dashboard />
-                          </ProtectedRoute>
-                        )
-                      }
-                    />
                     <Route path="*" element={<Navigate to={PREVIEW_ONLY ? '/documents' : '/'} replace />} />
                   </Routes>
                 </Router>

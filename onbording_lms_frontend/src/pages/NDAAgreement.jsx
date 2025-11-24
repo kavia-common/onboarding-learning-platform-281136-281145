@@ -1,21 +1,215 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * PUBLIC_INTERFACE
  * NDAAgreement
- * A themed page that renders the DigitalT3 NDA Agreement. Accepts optional props
- * to pre-fill names, titles, and dates for both consultant and DT3 signer.
+ * A themed page that renders the DigitalT3 NDA Agreement with interactive consultant fields.
+ * - Controlled inputs: consultantName, consultantTitle
+ * - Date picker: consultantDate (native input type="date")
+ * - Signature image upload with validation and live thumbnail preview
+ * - Persist values to localStorage (namespaced key) and prefill on load
+ * - Validate before save: require name, title, date, and valid image
+ * - Keep printed/previewed layout intact; show signature thumbnail in place of signature line when provided
+ * - No backend calls; styling keeps with Ocean Professional theme and NDA layout
  */
+const STORAGE_KEY = "nda_agreement_form_v1";
+
+function loadLocal() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocal(state) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore storage write errors
+  }
+}
+
 const NDAAgreement = ({
-  consultantName = "",
-  consultantTitle = "",
-  consultantDate = "",
+  consultantName: propName = "",
+  consultantTitle: propTitle = "",
+  consultantDate: propDate = "",
   dt3SignerName = "Alfred Gracias",
   dt3SignerTitle = "CEO",
   dt3Date = "",
 }) => {
+  // controlled states
+  const [consultantName, setConsultantName] = useState(propName);
+  const [consultantTitle, setConsultantTitle] = useState(propTitle);
+  const [consultantDate, setConsultantDate] = useState(
+    propDate || new Date().toISOString().slice(0, 10)
+  );
+  const [sigFileName, setSigFileName] = useState("");
+  const [sigDataUrl, setSigDataUrl] = useState(""); // persisted preview/data
+  const objectUrlRef = useRef(null);
+
+  // UI state
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  // hydrate from localStorage (namespaced)
+  useEffect(() => {
+    const local = loadLocal();
+    if (local) {
+      setConsultantName(local.consultantName || propName || "");
+      setConsultantTitle(local.consultantTitle || propTitle || "");
+      setConsultantDate(
+        local.consultantDate || propDate || new Date().toISOString().slice(0, 10)
+      );
+      setSigFileName(local.sigFileName || "");
+      setSigDataUrl(local.sigDataUrl || "");
+    } else {
+      setConsultantName(propName);
+      setConsultantTitle(propTitle);
+      setConsultantDate(propDate || new Date().toISOString().slice(0, 10));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // validation
+  const isValid = useMemo(() => {
+    const hasName = String(consultantName || "").trim().length > 1;
+    const hasTitle = String(consultantTitle || "").trim().length > 1;
+    const hasDate = Boolean(consultantDate);
+    const hasSig = Boolean(sigDataUrl);
+    return hasName && hasTitle && hasDate && hasSig;
+  }, [consultantName, consultantTitle, consultantDate, sigDataUrl]);
+
+  // file change handler with validation and preview
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    setSaved(false);
+    setError("");
+
+    // cleanup old object URL
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
+    if (!file) {
+      setSigFileName("");
+      setSigDataUrl("");
+      return;
+    }
+
+    if (!file.type || !file.type.startsWith("image/")) {
+      setError("Please upload a valid image file (PNG, JPG, JPEG, etc.).");
+      setSigFileName("");
+      setSigDataUrl("");
+      e.target.value = "";
+      return;
+    }
+
+    setSigFileName(file.name);
+    try {
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
+    } catch {
+      objectUrlRef.current = null;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSigDataUrl(String(reader.result || ""));
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setError("Could not read the selected image. Please try another file.");
+      setSigFileName("");
+      setSigDataUrl("");
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+      e.target.value = "";
+    }
+  };
+
+  // save handler
+  const handleSave = (e) => {
+    e.preventDefault();
+    setSaved(false);
+    setError("");
+
+    if (!isValid) {
+      const missing = [];
+      if (!consultantName || consultantName.trim().length < 2) missing.push("name");
+      if (!consultantTitle || consultantTitle.trim().length < 2) missing.push("title");
+      if (!consultantDate) missing.push("date");
+      if (!sigDataUrl) missing.push("signature image");
+      const msg =
+        missing.length === 1
+          ? `Please provide a valid ${missing[0]}.`
+          : `Please provide valid ${missing.slice(0, -1).join(", ")} and ${missing.slice(-1)}.`;
+      setError(msg);
+      return;
+    }
+
+    saveLocal({
+      consultantName: String(consultantName).trim(),
+      consultantTitle: String(consultantTitle).trim(),
+      consultantDate,
+      sigFileName: sigFileName || "signature.png",
+      sigDataUrl,
+      savedAt: new Date().toISOString(),
+    });
+    setSaved(true);
+  };
+
+  // cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  // Signature display block for the printed/previewed layout
+  function SignatureLineOrThumb() {
+    if (sigDataUrl) {
+      return (
+        <div style={{ minHeight: 28, display: "flex", alignItems: "center" }}>
+          <img
+            src={objectUrlRef.current || sigDataUrl}
+            alt="Signature thumbnail"
+            style={{
+              maxHeight: 60,
+              border: "1px solid var(--border-color)",
+              borderRadius: 8,
+              padding: 4,
+              background: "var(--bg-secondary)",
+            }}
+          />
+        </div>
+      );
+    }
+    return <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }} />;
+  }
+
   return (
     <main style={{ padding: 20 }}>
+      <style>
+        {`
+          @media print {
+            .nda-actions, .theme-toggle, input, .btn { display: none !important; }
+            main { padding: 0 !important; }
+            .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+          }
+        `}
+      </style>
+
       <div
         className="card"
         style={{
@@ -95,6 +289,8 @@ const NDAAgreement = ({
         <p style={{ marginTop: 16 }}>
           <em>Intending to be legally bound hereby, I agree to this Acknowledgment by signing below.</em>
         </p>
+
+        {/* Consultant section: display-ready grid with live thumbnail in place of signature line */}
         <hr style={{ margin: "24px 0", borderColor: "var(--border-color)" }} />
         <h3 style={{ marginTop: 0 }}>Consultant</h3>
         <div
@@ -108,14 +304,194 @@ const NDAAgreement = ({
           }}
         >
           <div>Signature:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }} />
+          <SignatureLineOrThumb />
           <div>Name:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{consultantName}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{consultantName || "—"}</span>
+          </div>
           <div>Title:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{consultantTitle}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{consultantTitle || "—"}</span>
+          </div>
           <div>Date:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{consultantDate}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{consultantDate || "—"}</span>
+          </div>
         </div>
+
+        {/* Interactive form controls (not printed) */}
+        <form className="nda-actions" onSubmit={handleSave} noValidate>
+          <div
+            className="card"
+            style={{
+              padding: 16,
+              marginTop: 12,
+              display: "grid",
+              gap: 12,
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-color)",
+              borderRadius: 12,
+              maxWidth: 720,
+            }}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ display: "block" }}>
+                <span style={{ display: "block", marginBottom: 6 }}>Consultant Name</span>
+                <input
+                  type="text"
+                  value={consultantName}
+                  onChange={(e) => {
+                    setConsultantName(e.target.value);
+                    setSaved(false);
+                    setError("");
+                  }}
+                  placeholder="Enter your full name"
+                  aria-required="true"
+                  aria-invalid={!consultantName || consultantName.trim().length < 2}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-color)",
+                    outline: "none",
+                  }}
+                />
+              </label>
+              <label style={{ display: "block" }}>
+                <span style={{ display: "block", marginBottom: 6 }}>Consultant Title</span>
+                <input
+                  type="text"
+                  value={consultantTitle}
+                  onChange={(e) => {
+                    setConsultantTitle(e.target.value);
+                    setSaved(false);
+                    setError("");
+                  }}
+                  placeholder="e.g., Intern"
+                  aria-required="true"
+                  aria-invalid={!consultantTitle || consultantTitle.trim().length < 2}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-color)",
+                    outline: "none",
+                  }}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ display: "block" }}>
+                <span style={{ display: "block", marginBottom: 6 }}>Date</span>
+                <input
+                  type="date"
+                  value={consultantDate}
+                  onChange={(e) => {
+                    setConsultantDate(e.target.value);
+                    setSaved(false);
+                    setError("");
+                  }}
+                  aria-required="true"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-color)",
+                    outline: "none",
+                  }}
+                />
+              </label>
+
+              <div>
+                <label htmlFor="nda-signature-file" style={{ display: "block", marginBottom: 6 }}>
+                  Signature Image
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <input
+                    id="nda-signature-file"
+                    type="file"
+                    accept="image/*,.png,.jpg,.jpeg"
+                    onChange={handleFileChange}
+                    aria-required="true"
+                    style={{
+                      display: "block",
+                      padding: "8px 0",
+                    }}
+                  />
+                  {objectUrlRef.current ? (
+                    <img
+                      src={objectUrlRef.current}
+                      alt="Signature preview"
+                      style={{
+                        maxHeight: 60,
+                        border: "1px solid var(--border-color)",
+                        borderRadius: 8,
+                        padding: 4,
+                        background: "var(--bg-secondary)",
+                      }}
+                    />
+                  ) : null}
+                </div>
+                <div aria-live="polite" style={{ marginTop: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+                  {sigFileName ? `Selected: ${sigFileName}` : "No file selected"}
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="card"
+                style={{
+                  borderLeft: "4px solid var(--error)",
+                  padding: "8px 10px",
+                  background: "rgba(239,68,68,0.06)",
+                  color: "var(--text-primary)",
+                  fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {saved && (
+              <div
+                role="status"
+                className="card"
+                style={{
+                  borderLeft: "4px solid var(--success)",
+                  padding: "8px 10px",
+                  background: "rgba(16,185,129,0.08)",
+                  color: "var(--text-primary)",
+                  fontSize: 14,
+                }}
+              >
+                Saved locally. Thank you!
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="submit"
+                className="btn"
+                disabled={!isValid}
+                aria-disabled={!isValid}
+                aria-label="Save NDA acknowledgment locally"
+                title={isValid ? "Save" : "Please fill all required fields and upload signature"}
+                style={{
+                  background: isValid ? "var(--primary)" : "#93C5FD",
+                  color: "white",
+                  minWidth: 120,
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* DT3 side remains display-only per the provided layout */}
         <hr style={{ margin: "24px 0", borderColor: "var(--border-color)" }} />
         <h3 style={{ marginTop: 0 }}>Accepted by DigitalT3, LLC.</h3>
         <div
@@ -131,11 +507,17 @@ const NDAAgreement = ({
           <div>Signature:</div>
           <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }} />
           <div>Name:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{dt3SignerName}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{dt3SignerName}</span>
+          </div>
           <div>Title:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{dt3SignerTitle}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{dt3SignerTitle}</span>
+          </div>
           <div>Date:</div>
-          <div style={{ borderBottom: "1px solid var(--border-color)", height: 28 }}>{dt3Date}</div>
+          <div style={{ borderBottom: "1px solid var(--border-color)", minHeight: 28, display: "flex", alignItems: "center" }}>
+            <span>{dt3Date || "—"}</span>
+          </div>
         </div>
       </div>
 

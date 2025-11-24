@@ -1,51 +1,64 @@
-# Lightweight React Template for KAVIA
+# Onboarding LMS Frontend
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+Modern React app with router-driven layout, onboarding wizard, documents acknowledgment, basic course catalog, and auth with mock fallback.
 
 ## Features
 
-- **Documents Onboarding**: View and acknowledge Code of Conduct and NDA with electronic signature.
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with Ocean Professional styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+- Router-driven pages: `/`, `/onboarding`, `/documents`, `/catalog`, `/course/:id`, `/dashboard`, `/login`, `/register`, `/logout`
+- Documents Onboarding: View and acknowledge Code of Conduct and NDA with electronic signature
+- Onboarding Wizard: Integrates the Documents step with welcome and next steps
+- Auth Store: JWT handling with mock fallback when no API is configured
+- Course and Progress Stores: LocalStorage with optional API sync
+- Feature Flags: via `REACT_APP_FEATURE_FLAGS` (JSON or comma list)
+- Ocean Professional theme with accessibility and responsive layout
+- Toast notifications for user feedback
 
 ## Getting Started
 
-In the project directory, you can run:
+In the project directory, run:
 
-### `npm start`
+- `npm start` — start dev server at http://localhost:3000
+- `npm test` — run tests
+- `npm run build` — production build
 
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Environment Variables
 
-### `npm test`
+Copy `.env.example` to `.env` and set as needed:
 
-Launches the test runner in interactive watch mode.
+- `REACT_APP_API_BASE` — API base URL for REST backend (optional)
+- `REACT_APP_BACKEND_URL` — alternative API base (optional)
+- `REACT_APP_FRONTEND_URL` — site URL (optional)
+- `REACT_APP_WS_URL` — websocket URL (optional)
+- `REACT_APP_NODE_ENV` — node env (optional)
+- `REACT_APP_ENABLE_SOURCE_MAPS` — build maps (optional)
+- `REACT_APP_PORT` — port (optional)
+- `REACT_APP_TRUST_PROXY` — (optional)
+- `REACT_APP_LOG_LEVEL` — (optional)
+- `REACT_APP_HEALTHCHECK_PATH` — (optional)
+- `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`
+- `REACT_APP_EXPERIMENTS_ENABLED` — (optional)
 
-### `npm run build`
+If neither `REACT_APP_API_BASE` nor `REACT_APP_BACKEND_URL` is set:
+- Auth, Courses, and Progress stores use mock/localStorage behavior
+- Documents submissions are stored locally; attempts to post to server are skipped
 
-Builds the app for production to the `build` folder.
+## API Conventions (when configured)
+
+- Auth: `POST /auth/login`, `POST /auth/register`
+- Courses: `GET /courses`
+- Progress: `PUT /progress/:courseId`
+- Documents: `POST /acknowledgements`
+
+All requests use JSON.
 
 ## Documents Onboarding
 
-Open the app and navigate to the "Documents" section from the top navigation. Review the Code of Conduct and NDA, then acknowledge by:
-- Checking the agreement box
-- Typing your full name
-- Selecting the date
+Navigate to "Documents", review both documents, and acknowledge:
+- Check the agreement box
+- Type your full name
+- Select the date
 
-A local completion state is stored in your browser (localStorage). If a backend is configured, acknowledgements are also posted to the server.
-
-### Optional Backend
-
-Set the following environment variable to enable backend posting:
-
-```
-REACT_APP_API_BASE=https://api.example.com
-```
-
-When set, the app will POST to `${REACT_APP_API_BASE}/acknowledgements` with a payload:
-
+Local state is stored in `localStorage`. If a backend is set, acknowledgements are posted as:
 ```json
 {
   "userId": "mock-or-todo",
@@ -53,6 +66,8 @@ When set, the app will POST to `${REACT_APP_API_BASE}/acknowledgements` with a p
 }
 ```
 
-If the request fails, the app gracefully falls back to local storage only.
+If posting fails, the app falls back to local storage.
 
-See `.env.example` for additional optional variables.
+## Testing
+
+Basic tests cover routing presence, documents page rendering, and protected route behavior.

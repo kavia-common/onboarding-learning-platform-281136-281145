@@ -129,16 +129,37 @@ function Home() {
 
 // Auth pages
 function Login() {
-  // Hooks must always be called
   const { login } = useAuth();
   const { push } = useToast();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/documents';
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState('');
 
-  // Perform redirect afterwards if preview mode
   if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
+  const handleLogin = async () => {
+    setSubmitting(true);
+    setErrorText('');
+    try {
+      const result = await login(email, pwd);
+      if (result === true) {
+        push({ type: 'success', message: 'Logged in' });
+        window.location.replace(from);
+      } else if (result && result.ok === false && result.message) {
+        // Supabase-style error surfaced
+        setErrorText(result.message);
+        push({ type: 'error', message: result.message });
+      } else {
+        setErrorText('Invalid credentials');
+        push({ type: 'error', message: 'Invalid credentials' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <main style={{ padding: 20 }}>
@@ -162,19 +183,16 @@ function Login() {
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-color)' }}
           />
         </label>
+        {errorText ? (
+          <div role="alert" style={{ color: 'var(--error)', marginBottom: 8 }}>{errorText}</div>
+        ) : null}
         <button
           className="btn"
-          onClick={async ()=>{
-            const ok = await login(email, pwd);
-            if (ok) {
-              push({ type:'success', message:'Logged in' });
-              window.location.replace(from);
-            } else {
-              push({ type:'error', message:'Invalid credentials' });
-            }
-          }}
+          onClick={handleLogin}
+          disabled={submitting}
+          aria-busy={submitting}
         >
-          Sign in
+          {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </section>
     </main>
@@ -182,12 +200,12 @@ function Login() {
 }
 
 function Register() {
-  // Hooks first
   const { register } = useAuth();
   const { push } = useToast();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState('');
 
   if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
 
@@ -195,30 +213,41 @@ function Register() {
     const trimmedEmail = String(email || '').trim();
     const trimmedPwd = String(pwd || '').trim();
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      push({ type: 'error', message: 'Please enter a valid email address.' });
+      const msg = 'Please enter a valid email address.';
+      setErrorText(msg);
+      push({ type: 'error', message: msg });
       return false;
     }
     if (trimmedPwd.length < 6) {
-      push({ type: 'error', message: 'Password must be at least 6 characters.' });
+      const msg = 'Password must be at least 6 characters.';
+      setErrorText(msg);
+      push({ type: 'error', message: msg });
       return false;
     }
+    setErrorText('');
     return true;
   };
 
   const handleRegister = async () => {
     if (!validate()) return;
     setSubmitting(true);
+    setErrorText('');
     try {
       const result = await register(email.trim(), pwd.trim());
       if (result === true) {
         push({ type: 'success', message: 'Registration successful' });
         window.location.replace('/documents');
       } else if (result && result.errorCode === 409) {
-        push({ type: 'error', message: 'Email already registered. Try logging in.' });
+        const msg = 'Email already registered. Try logging in.';
+        setErrorText(msg);
+        push({ type: 'error', message: msg });
       } else if (result && result.message) {
+        setErrorText(result.message);
         push({ type: 'error', message: result.message });
       } else {
-        push({ type: 'error', message: 'Registration failed. Please try again.' });
+        const msg = 'Registration failed. Please try again.';
+        setErrorText(msg);
+        push({ type: 'error', message: msg });
       }
     } finally {
       setSubmitting(false);
@@ -249,6 +278,9 @@ function Register() {
             aria-invalid={pwd.length > 0 && pwd.length < 6}
           />
         </label>
+        {errorText ? (
+          <div role="alert" style={{ color: 'var(--error)', marginBottom: 8 }}>{errorText}</div>
+        ) : null}
         <button
           className="btn"
           onClick={handleRegister}

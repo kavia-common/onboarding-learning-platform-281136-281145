@@ -1,21 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { getSupabaseClient } from '../lib/supabaseClient';
 
 const STORAGE_KEY = 'lms_auth';
-const USERS_KEY = 'lms_users_v1'; // local user registry
+const USERS_KEY = 'lms_users_v1'; // local user registry (fallback)
 const ADMIN_INBOX_KEY = 'dt3_admin_inbox'; // stores admin submissions
 const ADMIN_SEED_FLAG = 'dt3_admin_seeded_v1';
 
-/**
- * Minimal non-production hashing for demo purposes.
- * Not secure. Do NOT use in production.
- */
 function demoDigest(input) {
   try {
     const data = String(input || '');
-    // simple base64 of string + salt marker to avoid plain-text (non-secure)
     return btoa(unescape(encodeURIComponent(`v1$${data}`)));
   } catch {
-    // fallback: return input marked
     return `v1$${input}`;
   }
 }
@@ -41,23 +36,35 @@ function saveUsers(users) {
 
 const AuthContext = createContext(null);
 
+// Map Supabase session to our local user shape with role
+function toLocalUser(sbUser) {
+  if (!sbUser) return null;
+  const meta = sbUser.user_metadata || {};
+  const role = meta.app_role || 'user';
+  return {
+    id: sbUser.id,
+    email: sbUser.email || '',
+    name: meta.name || sbUser.email || '',
+    role,
+  };
+}
+
 // PUBLIC_INTERFACE
 export function AuthProvider({ children }) {
   /**
    * PUBLIC_INTERFACE
    * AuthProvider
-   * Pure frontend auth provider.
-   * - Registration/Login stored in localStorage (USERS_KEY)
-   * - Session stored in localStorage (STORAGE_KEY)
-   * - No backend or env vars required for core flows
+   * Uses Supabase auth if configured; otherwise falls back to local-only mode.
+   * - Session stored in localStorage (STORAGE_KEY) for quick restore
+   * - Role derived from Supabase user_metadata.app_role or defaults to 'user'
    */
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Load session on mount and seed an admin account if none exists
+  // Session bootstrap + admin seeding for local fallback
   useEffect(() => {
     try {
-      // Seed a default admin once if registry is empty or no admin found
       const alreadySeeded = window.localStorage.getItem(ADMIN_SEED_FLAG);
       const users = loadUsers();
       const hasAdmin = Object.values(users).some(u => u?.role === 'admin');
@@ -67,7 +74,7 @@ export function AuthProvider({ children }) {
           id: `local-admin-${Date.now()}`,
           email: adminEmail,
           name: 'DT3 Admin',
-          passwordHash: demoDigest('admin123'), // demo only
+          passwordHash: demoDigest('admin123'),
           createdAt: new Date().toISOString(),
           role: 'admin',
         };
@@ -76,6 +83,7 @@ export function AuthProvider({ children }) {
         window.localStorage.setItem(ADMIN_SEED_FLAG, 'true');
       }
 
+      // Try to restore prior session from storage quickly
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
@@ -84,7 +92,50 @@ export function AuthProvider({ children }) {
       }
     } catch {
       // ignore
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  // Subscribe to Supabase auth state if available
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return undefined;
+
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      const session = data?.session || null;
+      const sbUser = session?.user || null;
+      const mapped = toLocalUser(sbUser);
+      const accessToken = session?.access_token || '';
+      setUser(mapped);
+      setToken(accessToken);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: mapped, token: accessToken }));
+      } catch {
+        // ignore
+      }
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sbUser = session?.user || null;
+      const mapped = toLocalUser(sbUser);
+      const accessToken = session?.access_token || '';
+      setUser(mapped);
+      setToken(accessToken);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: mapped, token: accessToken }));
+      } catch {
+        // ignore
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   const persist = useCallback((next) => {
@@ -100,10 +151,8 @@ export function AuthProvider({ children }) {
     /**
      * PUBLIC_INTERFACE
      * register
-     * Registers a new user in localStorage-only registry.
-     * - Returns true on success
-     * - Returns { ok:false, message, errorCode? } on failure
-     * Non-production: password stored with a simple base64 digest for demo.
+     * If Supabase is configured, sign up using Supabase. Otherwise, register in local fallback.
+     * Returns true on success or { ok:false, message } on error.
      */
     const e = String(email || '').trim().toLowerCase();
     const p = String(password || '');
@@ -115,11 +164,41 @@ export function AuthProvider({ children }) {
       return { ok: false, message: 'Password must be at least 6 characters.' };
     }
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const siteUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+        const { data, error } = await supabase.auth.signUp({
+          email: e,
+          password: p,
+          options: {
+            emailRedirectTo: `${siteUrl}/documents`,
+            data: {
+              app_role: 'user',
+              name: e,
+            },
+          },
+        });
+        if (error) {
+          return { ok: false, message: error.message };
+        }
+        // User may be null until email confirmation, depending on Supabase settings.
+        const mapped = toLocalUser(data.user);
+        const accessToken = data.session?.access_token || '';
+        setUser(mapped);
+        setToken(accessToken);
+        persist({ user: mapped, token: accessToken });
+        return true;
+      } catch (err) {
+        return { ok: false, message: (err && err.message) || 'Sign up failed' };
+      }
+    }
+
+    // Local fallback
     const users = loadUsers();
     if (users[e]) {
       return { ok: false, message: 'Email already registered.', errorCode: 409 };
     }
-
     const passwordHash = demoDigest(p);
     const newUser = {
       id: `local-${Date.now()}`,
@@ -127,17 +206,14 @@ export function AuthProvider({ children }) {
       name: e,
       passwordHash,
       createdAt: new Date().toISOString(),
-      role: 'user', // default role
+      role: 'user',
     };
     users[e] = newUser;
     saveUsers(users);
-
-    // create a local session token (non-secure)
     const session = { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role || 'user' }, token: `local-${newUser.id}` };
     setUser(session.user);
     setToken(session.token);
     persist(session);
-
     return true;
   }, [persist]);
 
@@ -146,12 +222,31 @@ export function AuthProvider({ children }) {
     /**
      * PUBLIC_INTERFACE
      * login
-     * Authenticates against localStorage registry and sets local session.
-     * Returns true on success or false on invalid credentials.
+     * If Supabase is configured, sign in with email/password. Otherwise, use local fallback.
+     * Returns true on success or false on invalid credentials; may return {ok:false, message} on Supabase error.
      */
     const e = String(email || '').trim().toLowerCase();
     const p = String(password || '');
 
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: e, password: p });
+        if (error) {
+          return { ok: false, message: error.message };
+        }
+        const mapped = toLocalUser(data.user);
+        const accessToken = data.session?.access_token || '';
+        setUser(mapped);
+        setToken(accessToken);
+        persist({ user: mapped, token: accessToken });
+        return true;
+      } catch (err) {
+        return { ok: false, message: (err && err.message) || 'Login failed' };
+      }
+    }
+
+    // Local fallback
     const users = loadUsers();
     const found = users[e];
     if (!found) return false;
@@ -167,12 +262,20 @@ export function AuthProvider({ children }) {
   }, [persist]);
 
   // PUBLIC_INTERFACE
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     /**
      * PUBLIC_INTERFACE
      * logout
-     * Clears local session.
+     * Signs out from Supabase if configured; always clears local session.
      */
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignore
+      }
+    }
     setUser(null);
     setToken('');
     persist({ user: null, token: '' });
@@ -181,8 +284,8 @@ export function AuthProvider({ children }) {
   /**
    * PUBLIC_INTERFACE
    * makeAdmin(email)
-   * Manually promote an existing user to admin role in localStorage.
-   * Returns true if role updated.
+   * Local-only helper to promote user to admin in fallback registry, or adjust current in-memory role
+   * if running with Supabase but metadata not yet set remotely.
    */
   const makeAdmin = useCallback((email) => {
     try {
@@ -193,7 +296,6 @@ export function AuthProvider({ children }) {
       if (!u) return false;
       u.role = 'admin';
       saveUsers(users);
-      // if current session belongs to same user, update in-memory user
       if (user?.email === e) {
         const nextUser = { ...user, role: 'admin' };
         setUser(nextUser);
@@ -205,7 +307,10 @@ export function AuthProvider({ children }) {
     }
   }, [user, token, persist]);
 
-  const value = useMemo(() => ({ user, token, register, login, logout, makeAdmin }), [user, token, register, login, logout, makeAdmin]);
+  const value = useMemo(
+    () => ({ user, token, loading, register, login, logout, makeAdmin }),
+    [user, token, loading, register, login, logout, makeAdmin]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -3,6 +3,17 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 const STORAGE_KEY = 'lms_progress';
 const API_BASE = process.env.REACT_APP_API_BASE || process.env.REACT_APP_BACKEND_URL || '';
 
+function getAuthToken() {
+  try {
+    const raw = window.localStorage.getItem('lms_auth');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return parsed?.token || '';
+  } catch {
+    return '';
+  }
+}
+
 const ProgressContext = createContext(null);
 
 // PUBLIC_INTERFACE
@@ -35,10 +46,13 @@ export function ProgressProvider({ children }) {
     });
     if (API_BASE) {
       try {
-        await fetch(`${API_BASE}/progress/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ percent }),
+        const headers = { 'Content-Type': 'application/json' };
+        const token = getAuthToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        await fetch(`${API_BASE}/progress`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ courseId, percent }),
         });
       } catch {
         // ignore api failures

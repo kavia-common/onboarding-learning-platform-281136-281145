@@ -11,7 +11,8 @@
     "migrate": "node ./src/db/migrate.js || echo 'run SQL migrations manually'",
     "seed": "node ./src/db/seed.js || echo 'run SQL seed manually'",
     "lint": "echo \"No lint configured\"",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "smoke": "node ./src/utils/smoke.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

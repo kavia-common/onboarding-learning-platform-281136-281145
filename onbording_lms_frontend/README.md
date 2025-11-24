@@ -25,9 +25,9 @@ In the project directory, run:
 
 Copy `.env.example` to `.env` and set as needed:
 
-- `REACT_APP_API_BASE` — API base URL for REST backend (optional)
-- `REACT_APP_BACKEND_URL` — alternative API base (optional)
-- `REACT_APP_FRONTEND_URL` — site URL (optional)
+- `REACT_APP_API_BASE` — API base URL for REST backend (e.g., http://localhost:4000)
+- `REACT_APP_BACKEND_URL` — alternative API base (same as above if used)
+- `REACT_APP_FRONTEND_URL` — site URL (e.g., http://localhost:3000)
 - `REACT_APP_WS_URL` — websocket URL (optional)
 - `REACT_APP_NODE_ENV` — node env (optional)
 - `REACT_APP_ENABLE_SOURCE_MAPS` — build maps (optional)

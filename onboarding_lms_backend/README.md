@@ -3,6 +3,7 @@
 Node.js + Express + PostgreSQL backend for the Onboarding LMS.
 
 - CORS (reads CORS_ORIGINS or FRONTEND_URL vars), Helmet security headers, pino logging
+  - Ensure CORS_ORIGINS and/or FRONTEND_URL include your frontend URL (e.g., http://localhost:3000)
 - JWT auth (register, login, me)
 - Documents listing and acknowledgements
 - Catalog and Courses (with modules)

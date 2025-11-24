@@ -12,16 +12,44 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState('');
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const { user, token } = JSON.parse(raw);
-        setUser(user || null);
-        setToken(token || '');
+    let active = true;
+    (async () => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const existingUser = parsed?.user || null;
+          const existingToken = parsed?.token || '';
+          setUser(existingUser);
+          setToken(existingToken);
+
+          // If API configured and we have a token, verify it via /me
+          if (API_BASE && existingToken) {
+            try {
+              const res = await fetch(`${API_BASE}/me`, {
+                headers: { Authorization: `Bearer ${existingToken}` }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (active) setUser(data.user);
+              } else {
+                // token invalid; clear
+                if (active) {
+                  setUser(null);
+                  setToken('');
+                  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: null, token: '' }));
+                }
+              }
+            } catch {
+              // network errors ignored; keep local state
+            }
+          }
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
+    })();
+    return () => { active = false; };
   }, []);
 
   const persist = useCallback((next) => {

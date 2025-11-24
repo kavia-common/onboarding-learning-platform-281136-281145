@@ -2,6 +2,17 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 const API_BASE = process.env.REACT_APP_API_BASE || process.env.REACT_APP_BACKEND_URL || '';
 
+function getAuthToken() {
+  try {
+    const raw = window.localStorage.getItem('lms_auth');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return parsed?.token || '';
+  } catch {
+    return '';
+  }
+}
+
 const mockCourses = [
   { id: 'course-1', title: 'Welcome to the Company', description: 'Start here to learn the essentials.' },
   { id: 'course-2', title: 'Security Basics', description: 'Keep data safe with best practices.' },
@@ -20,7 +31,10 @@ export function CoursesProvider({ children }) {
     async function load() {
       if (!API_BASE) return;
       try {
-        const res = await fetch(`${API_BASE}/courses`);
+        const headers = {};
+        const token = getAuthToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE}/courses`, { headers });
         if (!res.ok) return;
         const data = await res.json();
         if (active && Array.isArray(data)) setCourses(data);

@@ -43,10 +43,7 @@ export default function Documents() {
       documents: [
         state.code_of_conduct,
         state.nda,
-        // include internship letter only if actually signed
-        ...(state.internship_letter?.acceptedAt && state.internship_letter?.signatureName
-          ? [state.internship_letter]
-          : [])
+        state.internship_letter
       ].map((d) => ({
         key: d.key,
         name: d.name,
@@ -79,10 +76,10 @@ export default function Documents() {
       download: '/attachments/20251124_122412_DT3_NDA_2025(docx).txt'
     },
     internship_letter: {
-      title: 'Internship Offer Letter (Optional)',
+      title: 'Internship Offer Letter',
       src: '/src/content/internship_letter.md',
       name: 'Internship Offer Letter',
-      optional: true,
+      optional: false,
       download: '/attachments/20251124_122412_DT3_Internsip_Letter_Nov2025(docx).txt'
     },
   };
@@ -122,7 +119,7 @@ export default function Documents() {
           >
             <h1 style={{ margin: 0, color: '#111827' }}>Onboarding Documents</h1>
             <p style={{ marginTop: 8, color: '#6b7280' }}>
-              Read and acknowledge the documents. Continue is enabled once both are signed.
+              Read and acknowledge all required documents. Continue is enabled once Code of Conduct, NDA, and the Internship Letter are signed.
             </p>
           </div>
 

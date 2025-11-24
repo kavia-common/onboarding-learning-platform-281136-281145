@@ -42,7 +42,9 @@ export default function DocumentList({ items, onOpen }) {
             }}
           >
             <div>
-              <div style={{ fontWeight: 600, color: '#111827' }}>{doc.name}</div>
+              <div style={{ fontWeight: 600, color: '#111827' }}>
+                {doc.name} <span aria-label="required" title="required" style={{ color: '#EF4444', fontSize: 12 }}>*</span>
+              </div>
               <div
                 style={{
                   marginTop: 4,

@@ -47,7 +47,7 @@ export function saveAckState(state) {
 // PUBLIC_INTERFACE
 export function isAllCompleted(state) {
   /** Returns true if all required documents have acceptedAt and signatureName. */
-  return ['code_of_conduct', 'nda'].every((k) => {
+  return ['code_of_conduct', 'nda', 'internship_letter'].every((k) => {
     const d = state[k];
     return d && d.acceptedAt && d.signatureName && String(d.signatureName).trim().length > 1;
   });

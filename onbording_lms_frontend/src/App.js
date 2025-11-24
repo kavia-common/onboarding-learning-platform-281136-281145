@@ -450,6 +450,23 @@ function App() {
   }, [theme]);
 
   // Banner for preview-only mode
+  // helper: detect mock flag without importing store internals
+  const isMockEnabled = (() => {
+    try {
+      const raw = process.env.REACT_APP_FEATURE_FLAGS || '';
+      if (!raw) return false;
+      const t = raw.trim();
+      if (t.startsWith('{') || t.startsWith('[')) {
+        const data = JSON.parse(t);
+        if (Array.isArray(data)) return data.includes('mockApi');
+        return Boolean(data.mockApi);
+      }
+      return raw.split(',').map(s => s.trim()).includes('mockApi');
+    } catch {
+      return false;
+    }
+  })();
+
   const previewBanner = PREVIEW_ONLY ? (
     <div
       role="note"
@@ -471,6 +488,27 @@ function App() {
     </div>
   ) : null;
 
+  const mockBanner = isMockEnabled ? (
+    <div
+      role="note"
+      aria-live="polite"
+      style={{
+        position: 'sticky',
+        top: PREVIEW_ONLY ? 92 : 52,
+        zIndex: 11,
+        margin: '8px 16px',
+        background: '#FFFBEB',
+        color: '#92400E',
+        border: '1px solid #F59E0B',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: 13
+      }}
+    >
+      Mock API mode is active: login and registration are simulated.
+    </div>
+  ) : null;
+
   return (
     <FeatureFlagsProvider>
       <ToastProvider>
@@ -481,6 +519,7 @@ function App() {
                 <Router>
                   <NavBar />
                   {previewBanner}
+                  {mockBanner}
                   <button
                     className="theme-toggle"
                     onClick={() => setTheme(t => (t === 'light' ? 'dark' : 'light'))}

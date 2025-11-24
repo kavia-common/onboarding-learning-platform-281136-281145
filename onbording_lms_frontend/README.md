@@ -35,13 +35,22 @@ Copy `.env.example` to `.env` and set as needed:
 - `REACT_APP_TRUST_PROXY` — (optional)
 - `REACT_APP_LOG_LEVEL` — (optional)
 - `REACT_APP_HEALTHCHECK_PATH` — (optional)
-- `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`
+- `REACT_APP_FEATURE_FLAGS` — JSON or comma list e.g. `{"onboarding":true}` or `onboarding,courses`.  
+  - To enable mock auth flow, include `mockApi` (e.g., `mockApi` or `{"mockApi": true}` or `["mockApi"]`). When enabled:
+    - Login and Registration return a mocked success response and set a local `mock-token`.
+    - A banner "Mock API mode is active" is shown in the UI.
+  - Remove `mockApi` (or set to false in JSON) to disable mock behavior.
 - `REACT_APP_EXPERIMENTS_ENABLED` — (optional)
 - `REACT_APP_PREVIEW_DOCUMENTS_ONLY` — when set to `true`, the app runs in Preview mode limited to the Documents flow only (see below)
 
 If neither `REACT_APP_API_BASE` nor `REACT_APP_BACKEND_URL` is set:
 - Auth, Courses, and Progress stores use mock/localStorage behavior
 - Documents submissions are stored locally; attempts to post to server are skipped
+
+Mock auth mode:
+- You can force mocked auth regardless of API availability by adding `mockApi` to `REACT_APP_FEATURE_FLAGS`.
+- In mock mode, Login and Registration succeed with a simulated user and token, and a visible banner indicates mock mode.
+- Remove `mockApi` to return to real backend behavior.
 
 ## Preview Mode: Documents Only
 

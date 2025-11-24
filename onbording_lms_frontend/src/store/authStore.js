@@ -18,8 +18,9 @@ function isMockEnabled() {
   try {
     const raw = process.env.REACT_APP_FEATURE_FLAGS || '';
     if (!raw) return false;
-    if (raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
-      const data = JSON.parse(raw);
+    const t = raw.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      const data = JSON.parse(t);
       if (Array.isArray(data)) return data.includes('mockApi');
       return Boolean(data.mockApi);
     }
@@ -129,11 +130,13 @@ export function AuthProvider({ children }) {
       return { ok: false, message: 'Password must be at least 6 characters.' };
     }
 
-    if (!API_BASE) {
+    // Mock path enabled via feature flag OR when API base is not configured
+    if (isMockEnabled() || !API_BASE) {
       const mock = { user: { id: 'mock-user', email: e }, token: 'mock-token' };
       setUser(mock.user); setToken(mock.token); persist(mock);
       return true;
     }
+
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
@@ -165,6 +168,12 @@ export function AuthProvider({ children }) {
       setUser(auth.user); setToken(auth.token); persist(auth);
       return true;
     } catch {
+      // If mock flag is on, allow flow to proceed on network errors too
+      if (isMockEnabled()) {
+        const mock = { user: { id: 'mock-user', email: e }, token: 'mock-token' };
+        setUser(mock.user); setToken(mock.token); persist(mock);
+        return true;
+      }
       return { ok: false, message: 'Network error. Please check API availability.' };
     }
   }, [persist]);

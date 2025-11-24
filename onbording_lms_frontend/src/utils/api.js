@@ -1,7 +1,11 @@
-const API_BASE =
-  process.env.REACT_APP_API_BASE ||
-  process.env.REACT_APP_BACKEND_URL ||
-  '';
+const API_BASE = (() => {
+  const raw =
+    process.env.REACT_APP_API_BASE ||
+    process.env.REACT_APP_BACKEND_URL ||
+    '';
+  const base = String(raw || '').trim();
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+})();
 
 function getAuthToken() {
   try {

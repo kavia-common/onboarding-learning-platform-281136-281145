@@ -1,7 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'lms_auth';
-const API_BASE = process.env.REACT_APP_API_BASE || process.env.REACT_APP_BACKEND_URL || '';
+const API_BASE = (() => {
+  // Resolve API base using multiple env names and normalize by trimming trailing slashes
+  const raw =
+    process.env.REACT_APP_API_BASE ||
+    process.env.REACT_APP_BACKEND_URL ||
+    '';
+  const base = String(raw || '').trim();
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+})();
 
 const AuthContext = createContext(null);
 
@@ -84,8 +92,18 @@ export function AuthProvider({ children }) {
   }, [persist]);
 
   const register = useCallback(async (email, password) => {
+    // Basic client-side guard
+    const e = String(email || '').trim();
+    const p = String(password || '');
+    if (!e || !e.includes('@')) {
+      return { ok: false, message: 'Invalid email address.' };
+    }
+    if (p.length < 6) {
+      return { ok: false, message: 'Password must be at least 6 characters.' };
+    }
+
     if (!API_BASE) {
-      const mock = { user: { id: 'mock-user', email }, token: 'mock-token' };
+      const mock = { user: { id: 'mock-user', email: e }, token: 'mock-token' };
       setUser(mock.user); setToken(mock.token); persist(mock);
       return true;
     }
@@ -93,15 +111,34 @@ export function AuthProvider({ children }) {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: e, password: p }),
       });
-      if (!res.ok) return false;
+
+      if (!res.ok) {
+        let msg = 'Registration failed.';
+        let errorCode = res.status;
+        try {
+          const body = await res.json();
+          if (body?.error === 'EmailExists' || res.status === 409) {
+            msg = 'Email already registered.';
+            errorCode = 409;
+          } else if (body?.error === 'ValidationError' && Array.isArray(body.details) && body.details.length) {
+            msg = `Validation error: ${body.details[0]}`;
+          } else if (body?.error) {
+            msg = body.error;
+          }
+        } catch {
+          // ignore JSON parsing errors
+        }
+        return { ok: false, message: msg, errorCode };
+      }
+
       const data = await res.json();
       const auth = { user: data.user, token: data.token };
       setUser(auth.user); setToken(auth.token); persist(auth);
       return true;
     } catch {
-      return false;
+      return { ok: false, message: 'Network error. Please check API availability.' };
     }
   }, [persist]);
 

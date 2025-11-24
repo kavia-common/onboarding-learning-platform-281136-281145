@@ -207,8 +207,43 @@ function Register() {
   const { push } = useToast();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (PREVIEW_ONLY) return <Navigate to="/documents" replace />;
+
+  const validate = () => {
+    const trimmedEmail = String(email || '').trim();
+    const trimmedPwd = String(pwd || '').trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      push({ type: 'error', message: 'Please enter a valid email address.' });
+      return false;
+    }
+    if (trimmedPwd.length < 6) {
+      push({ type: 'error', message: 'Password must be at least 6 characters.' });
+      return false;
+    }
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validate()) return;
+    setSubmitting(true);
+    try {
+      const result = await register(email.trim(), pwd.trim());
+      if (result === true) {
+        push({ type: 'success', message: 'Registration successful' });
+        window.location.replace('/dashboard');
+      } else if (result && result.errorCode === 409) {
+        push({ type: 'error', message: 'Email already registered. Try logging in.' });
+      } else if (result && result.message) {
+        push({ type: 'error', message: result.message });
+      } else {
+        push({ type: 'error', message: 'Registration failed. Please try again.' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <main style={{ padding: 20 }}>
@@ -221,6 +256,7 @@ function Register() {
             value={email}
             onChange={(e)=>setEmail(e.target.value)}
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-color)' }}
+            aria-invalid={!email || !email.includes('@')}
           />
         </label>
         <label style={{ display: 'block', marginBottom: 8 }}>
@@ -230,21 +266,16 @@ function Register() {
             value={pwd}
             onChange={(e)=>setPwd(e.target.value)}
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-color)' }}
+            aria-invalid={pwd.length > 0 && pwd.length < 6}
           />
         </label>
         <button
           className="btn"
-          onClick={async ()=>{
-            const ok = await register(email, pwd);
-            if (ok) {
-              push({ type:'success', message:'Registration successful' });
-              window.location.replace('/dashboard');
-            } else {
-              push({ type:'error', message:'Registration failed' });
-            }
-          }}
+          onClick={handleRegister}
+          disabled={submitting}
+          aria-busy={submitting}
         >
-          Create account
+          {submitting ? 'Creating...' : 'Create account'}
         </button>
       </section>
     </main>

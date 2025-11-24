@@ -1,20 +1,20 @@
-# Onboarding LMS Backend (Scaffold)
+# Onboarding LMS Backend (API)
 
-Node.js + Express + PostgreSQL backend scaffold for the Onboarding LMS. This step includes:
-- Project structure and configuration
-- Healthcheck and basic middleware (CORS, Helmet, logging)
-- PostgreSQL client and helpers
-- Database schema via SQL migration(s)
-- Seed data for initial documents and courses
-- `.env.example` with required variables
+Node.js + Express + PostgreSQL backend for the Onboarding LMS.
 
-API routes are intentionally not implemented in this step.
+- CORS (reads CORS_ORIGINS or FRONTEND_URL vars), Helmet security headers, pino logging
+- JWT auth (register, login, me)
+- Documents listing and acknowledgements
+- Catalog and Courses (with modules)
+- Progress endpoints
+- Healthcheck and OpenAPI stub
+- PostgreSQL client, migrations, and seeds
 
 ## Requirements
 
 - Node.js >= 18
 - PostgreSQL database
-- Create a `.env` file (copy from `.env.example`) and set DATABASE_URL
+- Create a `.env` file (copy from `.env.example`) and set DATABASE_URL and JWT_SECRET
 
 ## Getting Started
 
@@ -26,7 +26,7 @@ npm install
 2) Copy env file
 ```
 cp .env.example .env
-# Then edit .env to set DATABASE_URL and any other settings
+# Edit .env to set DATABASE_URL, JWT_SECRET, and CORS_ORIGINS/FRONTEND_URL
 ```
 
 3) Run migrations and seeds
@@ -37,47 +37,68 @@ npm run seed
 
 4) Start the server
 ```
-npm run dev   # with nodemon (development)
+npm run dev   # development with nodemon
 # or
-npm start     # plain node
+npm start     # production
 ```
 
 - Server runs on PORT (default 4000)
 - Health: GET ${HEALTHCHECK_PATH} (default `/healthz`)
-- OpenAPI placeholder: GET /openapi.json
+- OpenAPI: GET /openapi.json
 
-## Project Structure
+## API Endpoints
 
-```
-onboarding_lms_backend/
-  src/
-    config/
-      index.js         # env config loader
-    db/
-      client.js        # pg pool and helpers (migrate/seed)
-      migrate.js       # CLI entry for migrations
-      seed.js          # CLI entry for seeds
-    middleware/        # (reserved for later)
-    routes/            # (reserved for later)
-    server.js          # Express app entrypoint
-  db/
-    migrations/
-      001_init.sql     # schema
-    seeds/
-      001_seed.sql     # initial docs and courses
-  .env.example
-  package.json
-  README.md
-```
+Auth (JSON)
+- POST /auth/register
+  - body: { email: string, password: string, name?: string }
+  - returns: { token, user }
+- POST /auth/login
+  - body: { email: string, password: string }
+  - returns: { token, user }
+- GET /me
+  - header: Authorization: Bearer <token>
+  - returns: { user }
+
+Documents
+- GET /documents
+  - returns: [{ key, name, version, content_url }]
+- POST /acknowledgements
+  - headers (optional): Authorization: Bearer <token>
+  - body: { userId?: string, documents: [{ key, signatureName, acceptedAt, name? }] }
+  - returns: { ok: true, userId }
+
+Catalog and Courses
+- GET /catalog
+  - returns: courses [{ id, title, description, category }]
+- GET /courses
+  - same as /catalog
+- GET /courses/:id
+  - returns: { id, title, description, category, modules: [...] }
+- GET /courses/:id/modules
+  - returns: modules for a course
+
+Progress
+- POST /progress
+  - header: Authorization: Bearer <token>
+  - body: { courseId: uuid, percent: number }
+  - returns: { ok: true, courseId, percent }
+- PATCH /modules/:id/complete
+  - header: Authorization: Bearer <token>
+  - returns: { ok: true, moduleId, status: 'completed' }
+
+Health
+- GET /healthz (or HEALTHCHECK_PATH)
 
 ## Environment Variables
 
 - PORT: default 4000
 - DATABASE_URL: Postgres connection string (required)
-- JWT_SECRET: secret for JWT signing (placeholder for future auth)
+- JWT_SECRET: secret for JWT signing
 - CORS_ORIGINS: comma-separated list of allowed origins (default http://localhost:3000)
+- FRONTEND_URL / REACT_APP_FRONTEND_URL: also considered for CORS
 - LOG_LEVEL: pino log level (default info)
 - HEALTHCHECK_PATH: default /healthz
+- PGSSL: set to "true" to enable SSL
 
 Frontend passthrough variables included for convenience in `.env.example`:
 - REACT_APP_API_BASE, REACT_APP_BACKEND_URL, REACT_APP_FRONTEND_URL, REACT_APP_WS_URL,
@@ -102,7 +123,7 @@ Initial seed inserts:
 
 ## Notes
 
-- This scaffold is prepared for future REST API routes (auth, courses, progress, acknowledgements).
 - Keep credentials in `.env` only—do not hardcode secrets in code.
 - For production, consider enabling SSL for Postgres via `PGSSL=true`.
+- Acknowledgements support mock-friendly default: when unauthenticated and no userId provided, a mock user is created.
 

@@ -59,24 +59,31 @@ export default function Documents() {
               background: '#ffffff',
               border: '1px solid #e5e7eb',
               borderRadius: 12,
-              padding: 16,
+              padding: 0,
               boxShadow: '0 4px 10px rgba(0,0,0,0.04)',
               marginBottom: 12,
+              overflow: 'hidden',
             }}
           >
-            <h1 style={{ margin: 0, color: '#111827' }}>Onboarding Documents</h1>
-            <p style={{ marginTop: 8, color: '#6b7280' }}>
-              Read and acknowledge all required documents. Continue is enabled once Code of Conduct, NDA, and the Internship Letter are signed.
-            </p>
+            <div
+              aria-hidden="true"
+              style={{
+                height: 44,
+                background: 'linear-gradient(90deg, rgba(37,99,235,0.08), rgba(249,250,251,0.6))',
+                borderBottom: '1px solid #e5e7eb',
+              }}
+            />
+            <div style={{ padding: 16 }}>
+              <h1 style={{ margin: 0, color: '#111827' }}>Onboarding Documents</h1>
+              <p style={{ marginTop: 8, color: '#6b7280' }}>
+                Read and acknowledge all required documents. Continue is enabled once Code of Conduct, NDA, and the Internship Letter are signed.
+              </p>
+            </div>
           </div>
 
-          <DocumentList
-            items={items}
-            // onOpen removed since the viewer/tabs section is gone
-          />
+          <DocumentList items={items} />
         </aside>
 
-        {/* Removed highlighted section: tabs + document viewer container */}
         <section aria-label="Actions" style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
           <div
             style={{
@@ -102,13 +109,18 @@ export default function Documents() {
               style={{
                 background: canContinue ? '#2563EB' : '#93C5FD',
                 color: 'white',
-                border: 'none',
+                border: '1px solid #2563EB',
                 borderRadius: 10,
                 padding: '10px 16px',
                 cursor: canContinue ? 'pointer' : 'not-allowed',
-                boxShadow: canContinue ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
+                boxShadow: canContinue ? '0 8px 24px rgba(37,99,235,0.25)' : 'none',
                 minWidth: 140,
+                transition: 'box-shadow .2s ease, transform .08s ease, background .2s ease',
               }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseEnter={(e) => { if (canContinue) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
               aria-disabled={!canContinue || submitStatus === 'saving'}
               aria-label="Continue after acknowledging documents"
             >

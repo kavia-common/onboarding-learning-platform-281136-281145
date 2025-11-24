@@ -1,11 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getDocumentsStatus } from '../../utils/documentsStatus';
-
-const statusColors = {
-  pending: '#EF4444',
-  completed: '#10B981', // use a green tone for completeness clarity
-};
+import styles from './DocumentList.module.css';
 
 /**
  * PUBLIC_INTERFACE
@@ -30,123 +26,68 @@ export default function DocumentList({ items, onOpen }) {
   };
 
   const statuses = useMemo(() => getDocumentsStatus(), []);
+
   return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: '0 4px 10px rgba(0,0,0,0.04)',
-      }}
-      aria-label="Documents list"
-      role="list"
-    >
-      <h2 style={{ marginTop: 0, color: '#111827' }}>Documents</h2>
-      {items.map((doc) => {
-        // Map items keys (code_of_conduct, nda, internship_letter) to store keys
-        const storeKey =
-          doc.key === 'code_of_conduct'
-            ? 'codeOfConduct'
-            : doc.key === 'nda'
-            ? 'nda'
-            : doc.key === 'internship_letter'
-            ? 'offerLetter'
-            : null;
+    <div className={styles.container} aria-label="Documents list" role="list">
+      <div className={styles.header} role="presentation" aria-hidden="true">
+        <h2 className={styles.title}>Documents</h2>
+      </div>
 
-        const status = storeKey && statuses[storeKey] ? statuses[storeKey] : 'Pending';
-        const isDone = status === 'Completed';
-        const deepLink = routeFor(doc.key);
+      <div className={styles.list}>
+        {items.map((doc) => {
+          // Map items keys (code_of_conduct, nda, internship_letter) to store keys
+          const storeKey =
+            doc.key === 'code_of_conduct'
+              ? 'codeOfConduct'
+              : doc.key === 'nda'
+              ? 'nda'
+              : doc.key === 'internship_letter'
+              ? 'offerLetter'
+              : null;
 
-        // Accessible label for the action
-        const aria = `View ${doc.name}`;
+          const status = storeKey && statuses[storeKey] ? statuses[storeKey] : 'Pending';
+          const isDone = status === 'Completed';
+          const deepLink = routeFor(doc.key);
 
-        return (
-          <div
-            role="listitem"
-            key={doc.key}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid #e5e7eb',
-              marginBottom: 10,
-              background: '#f9fafb',
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, color: '#111827' }}>
-                {doc.name} <span aria-label="required" title="required" style={{ color: '#EF4444', fontSize: 12 }}>*</span>
+          // Accessible label for the action
+          const aria = `View ${doc.name}`;
+
+          return (
+            <div className={styles.item} role="listitem" key={doc.key}>
+              <div className={styles.left}>
+                <div className={styles.name}>
+                  <span>{doc.name}</span>
+                  <span aria-label="required" title="required" className={styles.required}>
+                    *
+                  </span>
+                </div>
+
+                <div className={styles.meta}>
+                  <span
+                    className={`${styles.dot} ${isDone ? styles.dotCompleted : styles.dotPending}`}
+                    aria-hidden="true"
+                  />
+                  <span className={isDone ? styles.badgeCompleted : styles.badgePending + ' ' + styles.badge} role="status" aria-live="polite">
+                    {isDone ? 'Completed' : 'Pending'}
+                  </span>
+                </div>
               </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  fontSize: 12,
-                  color: '#111827',
-                }}
-              >
-                <span
-                  aria-label={`Status ${isDone ? 'Completed' : 'Pending'}`}
-                  style={{
-                    display: 'inline-block',
-                    width: 8,
-                    height: 8,
-                    borderRadius: 999,
-                    background: isDone ? statusColors.completed : statusColors.pending,
-                  }}
-                />
-                {isDone ? 'Completed' : 'Pending'}
+
+              <div className={styles.actions}>
+                {deepLink ? (
+                  <Link to={deepLink} className={styles.button} aria-label={aria}>
+                    View
+                  </Link>
+                ) : (
+                  <button onClick={() => onOpen?.(doc.key)} className={styles.button} aria-label={aria}>
+                    View
+                  </button>
+                )}
               </div>
             </div>
-            <div>
-              {deepLink ? (
-                // Prefer anchor semantics for navigation; style like a button
-                <Link
-                  to={deepLink}
-                  className="btn"
-                  aria-label={aria}
-                  style={{
-                    textDecoration: 'none',
-                    background: '#2563EB',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
-                    display: 'inline-block',
-                  }}
-                >
-                  View
-                </Link>
-              ) : (
-                // Fallback to original in-panel open behavior if no deep route mapping
-                <button
-                  onClick={() => onOpen(doc.key)}
-                  className="btn"
-                  style={{
-                    background: '#2563EB',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
-                  }}
-                  aria-label={aria}
-                >
-                  View
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

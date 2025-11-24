@@ -45,3 +45,11 @@ Acknowledgement: I understand and agree to abide by the code of conduct.
 Employee Name: Abburi Pallavi
 Signature:      
 Date: 06-11-2025
+
+---
+
+## Additional Acknowledgment
+
+I acknowledge that I have reviewed the above Code of Conduct and agree to comply with all the guidelines and policies outlined herein. I understand that adherence to these standards is a condition of my continued association with DigitalT3.
+
+![Acknowledgment Image](/attachments/20251124_124757_image.png)

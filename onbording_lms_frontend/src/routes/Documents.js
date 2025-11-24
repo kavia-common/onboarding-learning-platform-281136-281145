@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import DocumentList from '../components/documents/DocumentList';
 import DocumentViewer from '../components/documents/DocumentViewer';
-import SignatureForm from '../components/documents/SignatureForm';
+
 import { loadAckState, saveAckState, isAllCompleted } from '../store/documentsStore';
 import { postAcknowledgements } from '../utils/api';
 
@@ -162,13 +162,7 @@ export default function Documents() {
             ariaLabel={`${activeMeta.title} content`}
           />
 
-          <SignatureForm
-            docKey={activeKey}
-            docName={activeMeta.name}
-            initialSignatureName={activeState.signatureName}
-            initialAcceptedAt={activeState.acceptedAt}
-            onChange={onFormChange}
-          />
+          {/* Signature form removed as per request to hide the highlighted section */}
 
           <div
             style={{

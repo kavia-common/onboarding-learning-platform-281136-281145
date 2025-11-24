@@ -9,7 +9,8 @@ import ProtectedRoute from './components/routing/ProtectedRoute';
 import { AuthProvider } from './store/authStore';
 import { CoursesProvider, useCourses } from './store/courseStore';
 import { ProgressProvider, useProgress } from './store/progressStore';
-import CodeOfConduct from './pages/CodeOfConduct';
+// Ensure CodeOfConduct is imported from the pages directory for the /code-of-conduct route
+import CodeOfConduct from './pages/CodeOfConduct.jsx';
 
 // Read preview flag once at module scope to avoid re-renders
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';

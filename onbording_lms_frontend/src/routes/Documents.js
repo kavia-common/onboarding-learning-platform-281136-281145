@@ -42,6 +42,8 @@ export default function Documents() {
         minHeight: '100vh',
         background: '#f9fafb',
         padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <div
@@ -51,6 +53,8 @@ export default function Documents() {
           display: 'grid',
           gridTemplateColumns: '320px 1fr',
           gap: 16,
+          width: '100%',
+          flex: 1, // allow content to grow so footer sticks to bottom
         }}
       >
         <aside>
@@ -84,53 +88,66 @@ export default function Documents() {
           <DocumentList items={items} />
         </aside>
 
-        <section aria-label="Actions" style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
-          <div
-            style={{
-              display: 'flex',
-              gap: 12,
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              background: '#ffffff',
-              border: '1px solid #e5e7eb',
-              borderRadius: 12,
-              padding: 12,
-              boxShadow: '0 4px 10px rgba(0,0,0,0.04)',
-            }}
-          >
-            {submitStatus === 'saved' && (
-              <span role="status" style={{ color: '#10B981', marginRight: 'auto' }}>
-                Saved locally. You can proceed.
-              </span>
-            )}
-            <button
-              disabled={!canContinue || submitStatus === 'saving'}
-              onClick={handleSubmit}
-              style={{
-                background: canContinue ? '#2563EB' : '#93C5FD',
-                color: 'white',
-                border: '1px solid #2563EB',
-                borderRadius: 10,
-                padding: '10px 16px',
-                cursor: canContinue ? 'pointer' : 'not-allowed',
-                boxShadow: canContinue ? '0 8px 24px rgba(37,99,235,0.25)' : 'none',
-                minWidth: 140,
-                transition: 'box-shadow .2s ease, transform .08s ease, background .2s ease',
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseEnter={(e) => { if (canContinue) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-              aria-disabled={!canContinue || submitStatus === 'saving'}
-              aria-label="Continue after acknowledging documents"
-            >
-              {submitStatus === 'saving' ? 'Saving...' : 'Continue'}
-            </button>
-          </div>
+        {/* Right side content area reserved for future extensions */}
+        <section aria-label="Content" style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
+          {/* Intentionally empty for now to remove top-right action bar */}
         </section>
       </div>
 
-      <footer style={{ marginTop: 24, textAlign: 'center', color: '#6b7280', fontSize: 12 }}>
+      {/* Sticky bottom action bar that does not overlap content */}
+      <div
+        role="region"
+        aria-label="Document actions"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 5,
+          width: '100%',
+          background: 'linear-gradient(to top, rgba(249,250,251,0.98), rgba(249,250,251,0.75))',
+          borderTop: '1px solid #e5e7eb',
+          padding: '12px 0',
+          marginTop: 16,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: '0 auto',
+            padding: '0 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            justifyContent: 'flex-end',
+          }}
+        >
+          {submitStatus === 'saved' && (
+            <span role="status" style={{ color: '#10B981', marginRight: 'auto' }}>
+              Saved locally. You can proceed.
+            </span>
+          )}
+          <button
+            disabled={!canContinue || submitStatus === 'saving'}
+            onClick={handleSubmit}
+            className="btn"
+            style={{
+              // override subtle states to reflect disabled visual while keeping theme
+              background: canContinue ? 'var(--primary)' : '#93C5FD',
+              color: '#fff',
+              borderRadius: 10,
+              padding: '10px 16px',
+              minWidth: 140,
+              cursor: canContinue ? 'pointer' : 'not-allowed',
+              boxShadow: canContinue ? '0 8px 24px rgba(37,99,235,0.25)' : 'none',
+            }}
+            aria-disabled={!canContinue || submitStatus === 'saving'}
+            aria-label="Continue after acknowledging documents"
+          >
+            {submitStatus === 'saving' ? 'Saving...' : 'Continue'}
+          </button>
+        </div>
+      </div>
+
+      <footer style={{ marginTop: 12, textAlign: 'center', color: '#6b7280', fontSize: 12 }}>
         Ocean Professional theme • Primary #2563EB • Secondary #F59E0B
       </footer>
     </main>

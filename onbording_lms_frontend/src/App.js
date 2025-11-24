@@ -42,25 +42,7 @@ function NavBar() {
         <Link to={PREVIEW_ONLY ? '/documents' : '/'} style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
           Onboarding LMS
         </Link>
-        {/* Catalog removed */}
-        <Link className="btn" to="/documents" aria-label="Go to documents" style={{ textDecoration: 'none' }}>
-          Documents
-        </Link>
-        <Link className="btn" to="/code-of-conduct" aria-label="Go to code of conduct" style={{ textDecoration: 'none' }}>
-          Code of Conduct
-        </Link>
-        <Link className="btn" to="/nda" aria-label="Go to NDA" style={{ textDecoration: 'none' }}>
-          NDA
-        </Link>
-        <Link className="btn" to="/offer-letter" aria-label="Go to Offer Letter" style={{ textDecoration: 'none' }}>
-          Offer Letter
-        </Link>
-        {!PREVIEW_ONLY && flags.onboarding && (
-          <Link className="btn" to="/onboarding" aria-label="Go to onboarding" style={{ textDecoration: 'none' }}>
-            Onboarding
-          </Link>
-        )}
-        {/* Dashboard removed */}
+        {/* Removed document-related and onboarding links from top nav to simplify navigation */}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!PREVIEW_ONLY && user ? (
@@ -100,7 +82,7 @@ function Sidebar() {
     >
       <h3 style={{ marginTop: 0 }}>Quick Links</h3>
       <ul style={{ lineHeight: 1.8, paddingLeft: 18, margin: 0 }}>
-        <li><Link to="/documents">Onboarding Docs</Link></li>
+        {/* No direct document links in sidebar */}
       </ul>
     </aside>
   );

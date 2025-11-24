@@ -1,15 +1,33 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'lms_auth';
-const API_BASE = (() => {
-  // Resolve API base using multiple env names and normalize by trimming trailing slashes
+
+// Normalize API base and avoid double slashes
+function resolveApiBase() {
   const raw =
     process.env.REACT_APP_API_BASE ||
     process.env.REACT_APP_BACKEND_URL ||
     '';
   const base = String(raw || '').trim();
-  return base.endsWith('/') ? base.slice(0, -1) : base;
-})();
+  if (!base) return '';
+  return base.replace(/\/+$/, '');
+}
+const API_BASE = resolveApiBase();
+
+function isMockEnabled() {
+  try {
+    const raw = process.env.REACT_APP_FEATURE_FLAGS || '';
+    if (!raw) return false;
+    if (raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) return data.includes('mockApi');
+      return Boolean(data.mockApi);
+    }
+    return raw.split(',').map(s => s.trim()).includes('mockApi');
+  } catch {
+    return false;
+  }
+}
 
 const AuthContext = createContext(null);
 
@@ -69,25 +87,34 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    if (!API_BASE) {
-      // mock success
+    if (!API_BASE || isMockEnabled()) {
+      // mock success path when API not configured or mock flag enabled
       const mock = { user: { id: 'mock-user', email }, token: 'mock-token' };
       setUser(mock.user); setToken(mock.token); persist(mock);
       return true;
     }
+    const url = `${API_BASE}/auth/login`;
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) return false;
+      if (!res.ok) return { ok: false, status: res.status, url };
       const data = await res.json();
       const auth = { user: data.user, token: data.token };
       setUser(auth.user); setToken(auth.token); persist(auth);
       return true;
-    } catch {
-      return false;
+    } catch (err) {
+      const pageIsHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+      const apiIsHttp = /^http:\/\//i.test(url);
+      const mixedContent = pageIsHttps && apiIsHttp;
+      return {
+        ok: false,
+        status: -1,
+        url,
+        message: `Network error while calling ${url}${mixedContent ? ' (blocked mixed content)' : ''}`
+      };
     }
   }, [persist]);
 

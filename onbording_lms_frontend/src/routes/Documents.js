@@ -57,8 +57,13 @@ export default function Documents() {
       setSubmitStatus('saved');
     } else {
       // gracefully fallback to local storage only
-      setSubmitStatus('failed');
-      setTimeout(() => setSubmitStatus('idle'), 3000);
+      setSubmitStatus({
+        state: 'failed',
+        message:
+          res?.message ||
+          `Could not reach backend${res?.url ? ` (${res.url})` : ''}${typeof res?.status === 'number' ? ` [status ${res.status}]` : ''}. Saved locally.`
+      });
+      setTimeout(() => setSubmitStatus('idle'), 4000);
     }
   };
 
@@ -203,9 +208,9 @@ export default function Documents() {
               justifyContent: 'flex-end',
             }}
           >
-            {submitStatus === 'failed' && (
+            {submitStatus?.state === 'failed' && (
               <span role="status" style={{ color: '#EF4444', marginRight: 'auto' }}>
-                Could not reach backend. Saved locally.
+                {submitStatus.message || 'Could not reach backend. Saved locally.'}
               </span>
             )}
             {submitStatus === 'saved' && (

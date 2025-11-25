@@ -52,6 +52,7 @@ export default function Navbar() {
                - If not admin: go to /admin/login
             */}
             <NavLink to={isAdmin ? "/admin" : "/admin/login"} style={linkStyle}>Admin</NavLink>
+            {isAdmin && <NavLink to="/admin/inbox" style={linkStyle}>Admin Inbox</NavLink>}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

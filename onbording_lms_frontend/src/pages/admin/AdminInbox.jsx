@@ -91,6 +91,69 @@ const AdminInbox = () => {
           </p>
         </header>
 
+        {/* Explicit top-level buttons for quick access to Provided documents */}
+        <div
+          role="group"
+          aria-label="Quick Actions"
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            padding: '1rem',
+            borderBottom: '1px solid rgba(17,24,39,0.06)',
+            background: '#F9FAFB'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => navigate('/admin/inbox/code-of-conduct')}
+            className="admin-inbox-btn"
+            style={{
+              backgroundColor: theme.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.6rem 0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(37,99,235,0.25)',
+            }}
+          >
+            Provided: Code of Conduct
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/inbox/nda')}
+            className="admin-inbox-btn"
+            style={{
+              backgroundColor: theme.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.6rem 0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(37,99,235,0.25)',
+            }}
+          >
+            Provided: NDA
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/inbox/offer-letter')}
+            className="admin-inbox-btn"
+            style={{
+              backgroundColor: theme.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.6rem 0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(37,99,235,0.25)',
+            }}
+          >
+            Provided: Offer Letter
+          </button>
+        </div>
+
         <ul
           style={{
             listStyle: 'none',

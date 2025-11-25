@@ -124,6 +124,9 @@ const AdminInboxView = () => {
           >
             {meta.title}
           </h1>
+          <p style={{ margin: '0.25rem 0 0', color: '#4B5563', fontSize: '0.95rem' }}>
+            Use the controls below to go back, open in a new tab, or download the PDF.
+          </p>
           <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               type="button"

@@ -24,6 +24,22 @@ async function ensurePdfLibs() {
   return { html2canvas, jsPDF };
 }
 
+/**
+ * INTERNAL: Ensure the pdf output is a valid data URL and not truncated/empty.
+ */
+function normalizePdfDataUrl(maybe) {
+  if (!maybe || typeof maybe !== 'string') return '';
+  // jsPDF may produce data:application/pdf;filename=...;base64,....
+  if (maybe.startsWith('data:application/pdf')) {
+    // basic sanity: ensure there is a comma and there is base64 data after
+    const idx = maybe.indexOf(',');
+    if (idx > -1 && maybe.length - idx > 32) {
+      return maybe;
+    }
+  }
+  return '';
+}
+
 // PUBLIC_INTERFACE
 async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
   /** Renders given HTML string into a PDF and returns a data URL (base64). Returns '' on failure. */
@@ -84,19 +100,43 @@ async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
         }
       }
 
-      dataUrl = pdf.output('datauristring');
+      // Ensure we get a data URL string. Prefer datauristring.
+      const out = pdf.output('datauristring');
+      dataUrl = normalizePdfDataUrl(out);
+      if (!dataUrl) {
+        // As a fallback try blob and convert to data URL
+        const blob = pdf.output('blob');
+        dataUrl = await new Promise((resolve) => {
+          const fr = new FileReader();
+          fr.onloadend = () => resolve(typeof fr.result === 'string' ? normalizePdfDataUrl(fr.result) : '');
+          fr.onerror = () => resolve('');
+          fr.readAsDataURL(blob);
+        });
+      }
     } else if (jsPDF) {
       const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
       pdf.setFontSize(12);
       const margin = 24;
       const lines = pdf.splitTextToSize(html.replace(/<[^>]+>/g, ''), pdf.internal.pageSize.getWidth() - margin * 2);
       pdf.text(lines, margin, margin + 12);
-      dataUrl = pdf.output('datauristring');
+      const out = pdf.output('datauristring');
+      dataUrl = normalizePdfDataUrl(out);
     }
 
+    // Cleanup
     document.body.removeChild(container);
-    return typeof dataUrl === 'string' ? dataUrl : '';
-  } catch {
+
+    // Final size check to avoid storing tiny/truncated payloads
+    if (!dataUrl) return '';
+    const commaIdx = dataUrl.indexOf(',');
+    const b64Len = commaIdx > -1 ? dataUrl.length - (commaIdx + 1) : 0;
+    // Require at least ~1KB of base64 to be considered valid
+    if (b64Len < 1024) return '';
+
+    return dataUrl;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('renderPdfDataUrlFromHtml failed:', e);
     return '';
   }
 }
@@ -174,6 +214,27 @@ function buildDocHtmlSnapshots() {
   } catch { /* ignore */ }
 
   return { codeOfConductHtml, ndaHtml, offerHtml };
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * Quick PDF data URL verifier for debugging. Logs diagnostics to console.
+ */
+export function verifyPdfDataUrl(sample) {
+  try {
+    const val = typeof sample === 'string' ? sample : '';
+    const okPrefix = val.startsWith('data:application/pdf');
+    const comma = val.indexOf(',');
+    const b64 = comma > -1 ? val.slice(comma + 1) : '';
+    const approxBytes = Math.floor(b64.length * 0.75);
+    // eslint-disable-next-line no-console
+    console.log('[PDF Verify]', { okPrefix, length: val.length, base64Bytes: approxBytes, commaIndex: comma });
+    return okPrefix && approxBytes > 1024;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[PDF Verify] failed:', e);
+    return false;
+  }
 }
 
 // PUBLIC_INTERFACE

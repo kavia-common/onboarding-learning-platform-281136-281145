@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AdminGate from '../../components/AdminGate.jsx';
 import { getInboxItems, subscribe } from '../../utils/adminInbox';
+import { isPdfDataUrl, normalizePdfInput, base64PdfToBlobUrl } from '../../utils/pdfUtils';
 
 // Ocean Professional palette
 const ocean = {
@@ -12,30 +13,9 @@ const ocean = {
   error: '#EF4444',
 };
 
-// Utils to validate and normalize PDF data
-function isPdfDataUrl(maybe) {
-  return !!(maybe && typeof maybe === 'string' && maybe.startsWith('data:application/pdf'));
-}
-function ensurePdfPrefix(maybe) {
-  if (!maybe) return '';
-  if (maybe.startsWith('data:application/pdf')) return maybe;
-  if (/^[A-Za-z0-9+/=\n\r]+$/.test(String(maybe).slice(0, 200))) {
-    return `data:application/pdf;base64,${maybe}`;
-  }
-  return maybe;
-}
-function base64ToUint8Array(b64) {
-  try {
-    const clean = String(b64).replace(/^data:application\/pdf(?:;charset=[^;]+)?;base64,/, '');
-    const bin = atob(clean);
-    const len = bin.length;
-    const out = new Uint8Array(len);
-    for (let i = 0; i < len; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  } catch {
-    return null;
-  }
-}
+/**
+ * Utils are imported from pdfUtils: isPdfDataUrl, normalizePdfInput, base64PdfToBlobUrl
+ */
 function toFileName(prefix, email) {
   const safe = String(email || 'user').replace(/[^a-z0-9_-]+/gi, '_');
   return `${prefix}_${safe}.pdf`;
@@ -57,23 +37,32 @@ function InlinePdfViewer({ dataUrl, title, onClose }) {
       setError('No PDF provided.');
       return () => {};
     }
-    const normalized = ensurePdfPrefix(dataUrl);
+    const normalized = normalizePdfInput(dataUrl);
     if (!isPdfDataUrl(normalized)) {
-      setError('Malformed PDF data. Expected application/pdf data URL.');
+      setError('Invalid PDF source. Expected application/pdf base64 data URL.');
       return () => {};
     }
     try {
-      const bytes = base64ToUint8Array(normalized);
-      if (!bytes) {
-        setError('Failed to decode PDF.');
+      const { url, error: decodeErr } = base64PdfToBlobUrl(normalized);
+      if (!url) {
+        const messageMap = {
+          'invalid-prefix': 'Malformed PDF data (invalid prefix).',
+          'missing-comma': 'Malformed PDF data (missing comma).',
+          'too-small': 'PDF appears to be empty or truncated.',
+          'empty-bin': 'Failed to decode PDF (empty binary).',
+          'zero-size': 'Decoded PDF has zero size.',
+          'exception': 'Unexpected error while preparing PDF.',
+        };
+        setError(messageMap[decodeErr] || 'Failed to decode PDF.');
         return () => {};
       }
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      current = URL.createObjectURL(blob);
+      current = url;
       setBlobUrl(current);
       setError('');
-    } catch {
-      setError('Unable to prepare PDF.');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('InlinePdfViewer error:', e);
+      setError('Unable to prepare PDF for viewing.');
     }
     return () => {
       if (current) {
@@ -191,6 +180,17 @@ function InlinePdfViewer({ dataUrl, title, onClose }) {
           >
             Download
           </a>
+          <a
+            href={isPdfDataUrl(dataUrl) ? dataUrl : '#'}
+            download={(title || 'document').replace(/\s+/g, '_') + '.original.pdf'}
+            role="button"
+            title="Download original data"
+            aria-label="Download original data"
+            style={{ color: ocean.secondary, border: '1px solid #fcd34d', padding: '6px 10px', borderRadius: 8, textDecoration: 'none', marginLeft: 4 }}
+            onClick={(e) => { if (!isPdfDataUrl(dataUrl)) e.preventDefault(); }}
+          >
+            Download original
+          </a>
           <button
             type="button"
             onClick={handlePrint}
@@ -258,7 +258,7 @@ function InlinePdfViewer({ dataUrl, title, onClose }) {
               <iframe
                 ref={iframeRef}
                 title={title || 'PDF viewer'}
-                src={blobUrl}
+                src={blobUrl || (isPdfDataUrl(dataUrl) ? dataUrl : '')}
                 style={{ width: '100%', height: '100%', border: 'none', background: '#111827' }}
               />
             </div>
@@ -285,7 +285,7 @@ function OceanTag({ ok }) {
 }
 
 function ActionButtons({ label, dataUrl, onView }) {
-  const normalized = ensurePdfPrefix(dataUrl);
+  const normalized = normalizePdfInput(dataUrl);
   const disabled = !isPdfDataUrl(normalized);
   return (
     <div style={{ display: 'inline-flex', gap: 8 }}>
@@ -347,7 +347,7 @@ export default function AdminInbox() {
   const rows = useMemo(() => (Array.isArray(items) ? items.slice().reverse() : []), [items]);
 
   const handleView = (src, title) => {
-    const normalized = ensurePdfPrefix(src);
+    const normalized = normalizePdfInput(src);
     if (!isPdfDataUrl(normalized)) {
       alert('Unable to preview document. The generated PDF appears to be malformed.');
       return;
@@ -366,6 +366,31 @@ export default function AdminInbox() {
     }, 0);
   };
 
+  // Verify decoding with a tiny 1-page blank PDF sample (known-good)
+  const handleVerify = () => {
+    // Minimal blank PDF (base64) produced by jsPDF for verification
+    const sample = 'data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSPj4KZW5kb2JqCjIgMCBvYmoKPDwvVHlwZS9QYWdlcy9Db3VudCAxL0tpZHMgWyAzIDAgUiBdPj4KZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveCBbMCAwIDU5NSAODQldL1Jlc291cmNlcyA8PC9Qcm9jU2V0Wy9QREZdPj4vQ29udGVudHMgNCAwIFI+PgplbmRvYmoKNCAwIG9iago8PC9MZW5ndGggMTAgPj4Kc3RyZWFtCkJUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDUzIDAwMDAwIG4gCjAwMDAwMDAxMzAgMDAwMDAgbiAKMDAwMDAwMDA5NSAwMDAwMCBuIAowMDAwMDAwMjM3IDAwMDAwIG4gCnRyYWlsZXIKPDwvUm9vdCAxIDAgUi9TaXplIDY+PgpzdGFydHhyZWYKMjU0CiUlRU9G';
+    try {
+      const commaIdx = sample.indexOf(',');
+      const base64Part = commaIdx > -1 ? sample.slice(commaIdx + 1) : '';
+      // eslint-disable-next-line no-console
+      console.log('[Verify] sample size base64 chars:', base64Part.length);
+      const normalized = normalizePdfInput(sample);
+      const { url, error } = base64PdfToBlobUrl(normalized);
+      // eslint-disable-next-line no-console
+      console.log('[Verify] blob url created?', !!url, 'error:', error);
+      if (!url) {
+        alert('Verification failed: cannot decode sample PDF.');
+      } else {
+        alert('Verification passed: sample PDF decoded.');
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Verify failed:', e);
+      alert('Verification failed: exception occurred.');
+    }
+  };
+
   return (
     <AdminGate>
       <main style={{ padding: 24, background: ocean.background, minHeight: '100%' }}>
@@ -378,7 +403,18 @@ export default function AdminInbox() {
             padding: 16,
           }}
         >
-          <h2 style={{ marginTop: 0, color: ocean.text }}>Inbox</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ marginTop: 0, color: ocean.text, marginBottom: 0 }}>Inbox</h2>
+            <button
+              type="button"
+              onClick={handleVerify}
+              title="Verify PDF decoding"
+              aria-label="Verify PDF decoding"
+              style={{ background: 'transparent', color: ocean.secondary, border: '1px solid #fcd34d', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}
+            >
+              Verify PDF decoder
+            </button>
+          </div>
           <p style={{ color: '#6b7280', marginTop: 4 }}>
             Submissions arrive here when a user clicks Continue on the Documents page.
           </p>
@@ -413,9 +449,9 @@ export default function AdminInbox() {
                 <tbody>
                   {rows.map((r, idx) => {
                     const email = r?.email || 'anonymous';
-                    const cocUrl = ensurePdfPrefix(r?.codeOfConductPdf);
-                    const ndaUrl = ensurePdfPrefix(r?.ndaPdf);
-                    const offerUrl = ensurePdfPrefix(r?.offerLetterPdf);
+                    const cocUrl = normalizePdfInput(r?.codeOfConductPdf);
+                    const ndaUrl = normalizePdfInput(r?.ndaPdf);
+                    const offerUrl = normalizePdfInput(r?.offerLetterPdf);
                     return (
                       <tr key={`row-${idx}`} style={{ borderBottom: '1px solid #f3f4f6' }}>
                         <td style={{ padding: 8 }}>{email}</td>

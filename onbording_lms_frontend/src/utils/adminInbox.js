@@ -20,7 +20,7 @@
 //
 // Includes SSR guards and safe JSON parsing.
 //
-// PUBLIC_INTERFACE
+ // PUBLIC_INTERFACE
 export function getInboxItems() {
   /** Returns a list of inbox items from localStorage, resilient to parse errors and SSR. */
   if (typeof window === 'undefined') return [];
@@ -49,9 +49,25 @@ export function appendInboxItem(item) {
       existing = [];
     }
     const next = Array.isArray(existing) ? existing.slice() : [];
-    // Normalize PDF fields to start with 'data:application/pdf;base64,' if provided
-    const normalizePdf = (v) =>
-      typeof v === 'string' && v.startsWith('data:application/pdf;base64,') ? v : v || '';
+    // Normalize PDF fields to ensure proper data URL prefix and minimum size
+    const normalizePdf = (v) => {
+      if (!v || typeof v !== 'string') return '';
+      let out = v;
+      // Support raw base64 input
+      if (!out.startsWith('data:application/pdf')) {
+        // Heuristic: looks like base64?
+        if (/^[A-Za-z0-9+/=\r\n]+$/.test(out.slice(0, 128))) {
+          out = `data:application/pdf;base64,${out}`;
+        }
+      }
+      // Only accept data:application/pdf
+      if (!out.startsWith('data:application/pdf')) return '';
+      const idx = out.indexOf(',');
+      if (idx < 0) return '';
+      const base64Part = out.slice(idx + 1);
+      if (base64Part.length < 1024) return ''; // avoid storing tiny/truncated pdfs
+      return out;
+    };
     const normalized = {
       ...item,
       ...(item.codeOfConductPdf ? { codeOfConductPdf: normalizePdf(item.codeOfConductPdf) } : {}),

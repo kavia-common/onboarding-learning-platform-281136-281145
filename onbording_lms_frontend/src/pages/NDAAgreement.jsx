@@ -212,12 +212,17 @@ const NDAAgreement = ({
       try { push({ type: "error", message: msg }); } catch { /* ignore */ }
       return;
     }
+    // SSR guard
+    if (typeof window === "undefined" || !exportRef.current) {
+      setExportError("PDF export is only available in the browser.");
+      return;
+    }
     setExporting(true);
     try {
       const { html2canvas, jsPDF } = await ensurePdfLibs();
       const node = exportRef.current;
       if (!html2canvas || !jsPDF || !node) {
-        // fallback to window.print
+        // fallback to print if libs unavailable
         window.print();
         setExporting(false);
         try { push({ type: "info", message: "Using browser print as a fallback." }); } catch {}
@@ -264,7 +269,8 @@ const NDAAgreement = ({
       }
 
       const safeName = String(consultantName || "consultant").trim().replace(/\s+/g, "_");
-      pdf.save(`nda_${safeName}.pdf`);
+      // Use jsPDF.save to trigger download with a sensible filename
+      pdf.save(`nda_${safeName || "consultant"}.pdf`);
       try { push({ type: "success", message: "NDA exported as PDF." }); } catch {}
       node.classList.remove("print-ready");
     } catch (e) {
@@ -307,6 +313,8 @@ const NDAAgreement = ({
             main { padding: 0 !important; }
             .card { box-shadow: none !important; border: 1px solid #ddd !important; }
           }
+          /* Slight smoothing for canvas capture */
+          .print-ready * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         `}
       </style>
 
@@ -320,9 +328,30 @@ const NDAAgreement = ({
           background: "var(--bg-secondary)",
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: 8, color: "var(--text-primary)" }}>
-          Non Disclosure - Acknowledgement & Agreement
-        </h1>
+        {/* Header and actions */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <h1 style={{ marginTop: 0, marginBottom: 8, color: "var(--text-primary)" }}>
+            Non Disclosure - Acknowledgement & Agreement
+          </h1>
+          <div className="nda-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleExportPdf}
+              disabled={!isValid || exporting}
+              aria-disabled={!isValid || exporting}
+              aria-label="Export NDA as PDF"
+              title={isValid ? "Export as PDF" : "Fill required fields and upload signature to enable export"}
+              style={{
+                background: isValid ? "var(--secondary)" : "#FCD34D",
+                color: "#111827",
+                minWidth: 160,
+              }}
+            >
+              {exporting ? "Exporting..." : "Export as PDF"}
+            </button>
+          </div>
+        </div>
         <ol style={{ paddingLeft: 18 }}>
           <li>
             <strong>Independent Contractor.</strong> I am a contractor or employee (“Consultant”). I am

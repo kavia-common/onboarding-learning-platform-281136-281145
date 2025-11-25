@@ -1,26 +1,60 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/authStore';
+import InboxTable from '../components/admin/InboxTable';
 
 /**
  * PUBLIC_INTERFACE
  * AdminDashboard
  * Admin-only dashboard. If not authenticated as admin, redirects to /admin/login.
- * Displays navigation cards to Users, Documents, and Settings.
+ * Displays navigation cards and integrated InboxTable widget.
  */
 export default function AdminDashboard() {
   const { user, currentUserIsAdmin, loading } = useAuth();
-  const [inbox, setInbox] = useState([]);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem('dt3_admin_inbox');
-      const parsed = raw ? JSON.parse(raw) : [];
-      setInbox(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setInbox([]);
-    }
+  // Demo items for the inbox; replace with API data in the future
+  const inboxItems = useMemo(
+    () => [
+      {
+        id: '1',
+        subject: 'NDA Signature Request',
+        from: 'jane.doe@example.com',
+        receivedAt: '2025-11-24 09:12',
+        status: 'pending',
+      },
+      {
+        id: '2',
+        subject: 'Course Access Approval',
+        from: 'john.smith@example.com',
+        receivedAt: '2025-11-24 10:03',
+        status: 'approved',
+      },
+      {
+        id: '3',
+        subject: 'Document Update Review',
+        from: 'ops@example.com',
+        receivedAt: '2025-11-24 12:47',
+        status: 'rejected',
+      },
+    ],
+    []
+  );
+
+  // Keep handlers simple; integrate with real flows later
+  const handleView = useCallback((item) => {
+    // eslint-disable-next-line no-alert
+    alert(`View item: ${item.subject}`);
+  }, []);
+
+  const handleApprove = useCallback((item) => {
+    // eslint-disable-next-line no-alert
+    alert(`Approve item: ${item.subject}`);
+  }, []);
+
+  const handleReject = useCallback((item) => {
+    // eslint-disable-next-line no-alert
+    alert(`Reject item: ${item.subject}`);
   }, []);
 
   if (loading) {
@@ -199,46 +233,9 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      {/* Integrated Inbox Table replaces previous local inbox table */}
       <section className="card" style={{ padding: 16, marginTop: 16, background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12 }}>
-        <h2 style={{ marginTop: 0, color: ocean.text }}>Inbox</h2>
-        <p style={{ color: '#6b7280', marginTop: 0 }}>
-          Local submissions stored under key "dt3_admin_inbox".
-        </p>
-        {inbox.length === 0 ? (
-          <div className="card" role="status" style={{ padding: 12 }}>
-            No submissions yet.
-          </div>
-        ) : (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead>
-                  <tr style={{ background: 'linear-gradient(90deg, rgba(37,99,235,0.08), rgba(249,250,251,0.6))' }}>
-                    <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted By</th>
-                    <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted At</th>
-                    <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Code of Conduct</th>
-                    <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>NDA</th>
-                    <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Offer Letter</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inbox.map((entry, idx) => {
-                    const ts = entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : '—';
-                    return (
-                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: 12 }}>{entry.submittedBy || 'Unknown'}</td>
-                        <td style={{ padding: 12, color: 'var(--text-secondary)' }}>{ts}</td>
-                        <td style={{ padding: 12 }}>{entry.codeOfConduct ? 'Provided' : <span style={{ color: 'var(--text-secondary)' }}>No data</span>}</td>
-                        <td style={{ padding: 12 }}>{entry.nda ? 'Provided' : <span style={{ color: 'var(--text-secondary)' }}>No data</span>}</td>
-                        <td style={{ padding: 12 }}>{entry.offerLetter ? 'Provided' : <span style={{ color: 'var(--text-secondary)' }}>No data</span>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <InboxTable items={inboxItems} onView={handleView} onApprove={handleApprove} onReject={handleReject} />
       </section>
 
       <footer style={{ marginTop: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>

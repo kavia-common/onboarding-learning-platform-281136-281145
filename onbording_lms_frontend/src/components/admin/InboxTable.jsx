@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 /**
  * InboxRow renders a single row for the Admin Inbox table.
@@ -188,7 +188,7 @@ export function InboxRow({
 
 /**
  * InboxTable renders a table-like list of inbox items with actions.
- * This keeps the provided click handlers intact, and uses semantic table elements.
+ * Sources data from localStorage key 'admin_inbox' and keeps it in sync.
  *
  * Expected localStorage format (key: 'admin_inbox'):
  * [
@@ -196,7 +196,7 @@ export function InboxRow({
  * ]
  *
  * We transform the above structure into internal rows:
- * { id, subject, from, receivedAt, status, codeOfConduct, nda, offerLetter }
+ * { id, subject, fromEmail, receivedAt, status, codeOfConduct, nda, offerLetter }
  *
  * Status rule:
  * - If all three booleans true => 'approved'
@@ -447,7 +447,7 @@ export default function InboxTable({
             </tr>
           </thead>
 
-          <tbody>
+        <tbody>
             {hasData ? (
               rows.map((it) => (
                 <InboxRow

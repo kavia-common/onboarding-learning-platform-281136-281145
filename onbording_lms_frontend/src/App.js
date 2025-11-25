@@ -53,7 +53,8 @@ function Login() {
       const result = await login(email, pwd);
       if (result === true) {
         push({ type: 'success', message: 'Logged in' });
-        window.location.replace(from);
+        // Use SPA navigation to keep router state and avoid reloads
+        navigate(from, { replace: true });
       } else if (result && result.ok === false && result.message) {
         setErrorText(result.message);
         push({ type: 'error', message: result.message });
@@ -289,6 +290,7 @@ function AdminRouteGuard({ children }) {
    * Accepts either explicit user.role === 'admin' or derived currentUserIsAdmin.
    */
   const { user, currentUserIsAdmin, loading } = useAuth();
+  const location = useLocation();
 
   // While auth is initializing (seeding admin and restoring session), don't redirect
   if (loading) {
@@ -297,7 +299,8 @@ function AdminRouteGuard({ children }) {
 
   const isAdmin = (user && user.role === 'admin') || currentUserIsAdmin === true;
   if (!user || !isAdmin) {
-    return <Navigate to="/admin/login" replace />;
+    // Preserve intended destination so AdminLogin can route back after success
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
   return children;
 }

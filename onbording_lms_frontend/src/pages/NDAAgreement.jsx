@@ -205,6 +205,9 @@ const NDAAgreement = ({
     return { html2canvas, jsPDF };
   }
 
+  // Alternatively, consider using the shared utility:
+  //   import { exportElementToPdf } from '../utils/exportPdf';
+  //   await exportElementToPdf(exportRef.current, `nda_${safeName}.pdf`);
   async function handleExportPdf() {
     setExportError("");
     if (!isValid) {

@@ -166,6 +166,9 @@ const OfferLetter = () => {
     return { html2canvas, jsPDF };
   }
 
+  // Alternatively, consider using the shared utility:
+  //   import { exportElementToPdf } from '../utils/exportPdf';
+  //   await exportElementToPdf(exportRef.current, 'offer_letter.pdf');
   async function handleExportPdf() {
     setExportError("");
     if (!hasSig) {

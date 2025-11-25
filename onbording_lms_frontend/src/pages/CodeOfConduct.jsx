@@ -187,6 +187,9 @@ const CodeOfConduct = () => {
   };
 
   // PDF Export handler
+  // Note: This page has its own inline export logic. Alternatively, you can reuse utils/exportPdf:
+  //   import { exportElementToPdf } from '../utils/exportPdf';
+  //   await exportElementToPdf(exportRef.current, `code_of_conduct_${safeName}.pdf`);
   const handleExportPdf = async () => {
     setExportError("");
     if (!isValid) {

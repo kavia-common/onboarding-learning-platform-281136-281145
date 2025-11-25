@@ -7,77 +7,18 @@ import { FeatureFlagsProvider, useFeatureFlags } from './store/featureFlags';
 import { ToastProvider, useToast } from './components/ui/Toast';
 import ProtectedRoute from './components/routing/ProtectedRoute';
 import { AuthProvider } from './store/authStore';
-import { CoursesProvider, useCourses } from './store/courseStore';
-import { ProgressProvider, useProgress } from './store/progressStore';
-// Ensure CodeOfConduct is imported from the pages directory for the /code-of-conduct route
+import { CoursesProvider } from './store/courseStore';
+import { ProgressProvider } from './store/progressStore';
 import CodeOfConduct from './pages/CodeOfConduct.jsx';
 import NDAAgreement from './pages/NDAAgreement.jsx';
 import OfferLetter from './pages/OfferLetter.jsx';
+import Navbar from './components/layout/Navbar.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Courses from './pages/Courses.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
+import Profile from './pages/Profile.jsx';
 
-// Read preview flag once at module scope to avoid re-renders
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
-
-// Layout components
-function NavBar() {
-  const { user, currentUserIsAdmin } = useAuth();
-  const { flags } = useFeatureFlags();
-  const isAdmin = Boolean(user?.role === 'admin' || currentUserIsAdmin === true);
-  // Lazy import to avoid circulars
-  const RoleBadge = React.useMemo(() => require('./components/ui/RoleBadge.jsx').default, []);
-
-  return (
-    <nav
-      role="navigation"
-      aria-label="Main navigation"
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border-color)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 16px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link to={PREVIEW_ONLY ? '/documents' : '/'} style={{ fontWeight: 800, color: 'var(--text-primary)', textDecoration: 'none' }}>
-          Onboarding LMS
-        </Link>
-        {isAdmin && (
-          <Link to="/admin" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
-            Admin
-          </Link>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {!PREVIEW_ONLY && user ? (
-          <>
-            <RoleBadge />
-            <span aria-live="polite" style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              {user.email}
-            </span>
-            <Link className="btn" to="/logout" aria-label="Logout" style={{ textDecoration: 'none' }}>
-              Logout
-            </Link>
-          </>
-        ) : (
-          !PREVIEW_ONLY && (
-            <>
-              <Link className="btn" to="/login" aria-label="Login" style={{ textDecoration: 'none' }}>
-                Login
-              </Link>
-              <Link className="btn" to="/register" aria-label="Register" style={{ textDecoration: 'none' }}>
-                Register
-              </Link>
-            </>
-          )
-        )}
-      </div>
-    </nav>
-  );
-}
 
 function Sidebar() {
   if (PREVIEW_ONLY) return null;
@@ -615,7 +556,7 @@ function App() {
             <ProgressProvider>
               <div className="App" style={{ textAlign: 'initial' }}>
                 <Router>
-                  <NavBar />
+                  <Navbar />
                   {previewBanner}
                   {mockBanner}
                   <button
@@ -626,13 +567,11 @@ function App() {
                     {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
                   </button>
                   <Routes>
-                    {/* Default route changes under preview: redirect / to /documents */}
-                    <Route path="/" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Home />} />
+                    <Route path="/" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Dashboard />} />
                     <Route path="/documents" element={<Documents />} />
                     <Route path="/code-of-conduct" element={<CodeOfConduct />} />
                     <Route path="/nda" element={<NDAAgreement />} />
                     <Route path="/offer-letter" element={<OfferLetter />} />
-                    {/* Admin route: guard inline to avoid separate component file */}
                     <Route
                       path="/admin"
                       element={
@@ -641,9 +580,10 @@ function App() {
                         </AdminRouteGuard>
                       }
                     />
-
-                    {/* Other routes are either enabled or redirected to /documents in preview mode */}
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
+                    <Route path="/courses" element={<Courses />} />
+                    <Route path="/courses/:courseId" element={<CourseDetail />} />
+                    <Route path="/profile" element={<Profile />} />
                     <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />
                     <Route path="/register" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Register />} />
                     <Route path="/logout" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Logout />} />

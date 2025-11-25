@@ -297,6 +297,28 @@ export function AuthProvider({ children }) {
     [user, token, persist, recomputeAdmin]
   );
 
+  // PUBLIC_INTERFACE
+  const setCurrentUser = useCallback((nextUser) => {
+    /**
+     * PUBLIC_INTERFACE
+     * setCurrentUser(nextUser)
+     * Sets the current user object and persists the session using the same STORAGE_KEY format.
+     * Intended for lightweight session changes (e.g., demo-only admin bypass).
+     */
+    const safeUser = nextUser ? {
+      id: nextUser.id,
+      email: nextUser.email,
+      name: nextUser.name,
+      role: nextUser.role || 'user',
+      status: nextUser.status,
+    } : null;
+    const session = { user: safeUser, token: safeUser ? `local-${safeUser.id || 'session'}` : '' };
+    setUser(safeUser);
+    setToken(session.token);
+    recomputeAdmin(safeUser);
+    persist(session);
+  }, [persist, recomputeAdmin]);
+
   const value = useMemo(
     () => ({
       user,
@@ -309,8 +331,9 @@ export function AuthProvider({ children }) {
       makeAdmin,
       getCurrentUserRole,
       updateCurrentUserRole,
+      setCurrentUser,
     }),
-    [user, token, loading, currentUserIsAdmin, register, login, logout, makeAdmin, getCurrentUserRole, updateCurrentUserRole]
+    [user, token, loading, currentUserIsAdmin, register, login, logout, makeAdmin, getCurrentUserRole, updateCurrentUserRole, setCurrentUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

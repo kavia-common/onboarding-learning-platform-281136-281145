@@ -10,7 +10,7 @@ import { useAuth } from '../store/authStore';
  * Demo-only: credentials are seeded locally; no external services are used.
  */
 export default function AdminLogin() {
-  const { login, loading } = useAuth();
+  const { login, loading, setCurrentUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,7 +32,36 @@ export default function AdminLogin() {
     setSubmitting(true);
     setErrorText('');
     try {
-      const result = await login(email, pwd);
+      const inEmail = String(email || '').trim().toLowerCase();
+      const inPwd = String(pwd || '');
+
+      // DEMO-ONLY bypass: direct admin session without relying on seeded users.
+      // Do NOT use in production. This is for local demos/tests only.
+      const DEMO_ADMIN_EMAIL = 'abburi@kavia.com';
+      const DEMO_ADMIN_PASSWORD = 'Pallavi@123';
+
+      if (inEmail === DEMO_ADMIN_EMAIL && inPwd === DEMO_ADMIN_PASSWORD) {
+        console.warn('[AdminLogin] DEMO-ONLY admin bypass in effect. Setting admin session directly.');
+        const demoAdmin = {
+          id: 'seed-admin',
+          name: 'Admin',
+          email: DEMO_ADMIN_EMAIL,
+          role: 'admin',
+          status: 'active',
+        };
+        // Persist using the same key/shape as auth store
+        setCurrentUser(demoAdmin);
+        try {
+          navigate('/admin', { replace: true });
+        } catch (navErr) {
+          console.warn('[AdminLogin] navigate() threw, falling back to <Navigate />:', navErr);
+          setRedirect(true);
+        }
+        return;
+      }
+
+      // Fallback to normal local login for other users
+      const result = await login(inEmail, inPwd);
       console.debug('[AdminLogin] login result:', result);
       if (result === true) {
         // Log right before navigate for tracing
@@ -124,7 +153,7 @@ export default function AdminLogin() {
         </form>
 
         <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>
-          Tip: This is a demo-only local login. Seeded admin: abburi@kavia.com / Pallavi@123. No external services are used.
+          Tip: This is a demo-only local login. Admin access: abburi@kavia.com / Pallavi@123. No external services are used.
         </div>
 
         <div style={{ marginTop: 12 }}>

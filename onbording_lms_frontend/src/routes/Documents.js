@@ -98,20 +98,7 @@ export default function Documents() {
       submittedBy = auth?.user?.email || 'anonymous';
     } catch { /* ignore */ }
 
-    // Append to admin inbox
-    try {
-      const inboxRaw = window.localStorage.getItem('dt3_admin_inbox');
-      const inbox = inboxRaw ? JSON.parse(inboxRaw) : [];
-      const entry = {
-        submittedBy,
-        submittedAt: nowIso,
-        codeOfConduct,
-        nda,
-        offerLetter,
-      };
-      const next = Array.isArray(inbox) ? [entry, ...inbox] : [entry];
-      window.localStorage.setItem('dt3_admin_inbox', JSON.stringify(next));
-    } catch { /* ignore */ }
+    // Admin Inbox feature removed; do not append to localStorage
 
     // Keep existing local acknowledgement posting (no-op without API base)
     const payload = {

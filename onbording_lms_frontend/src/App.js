@@ -43,30 +43,7 @@ function Footer() {
   );
 }
 
-function Home() {
-  if (PREVIEW_ONLY) {
-    return <Navigate to="/documents" replace />;
-  }
-  return (
-    <main style={{ padding: 20 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
-        <Sidebar />
-        <section className="card" aria-label="Welcome" style={{ padding: 24 }}>
-          <h1 style={{ marginTop: 0 }}>Welcome to the Onboarding LMS</h1>
-          <p>
-            Use the Documents section to review and electronically sign required policies.
-          </p>
-          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-            <Link className="btn" to="/documents" aria-label="Open Documents onboarding" style={{ textDecoration: 'none' }}>
-              Go to Documents
-            </Link>
-          </div>
-        </section>
-      </div>
-      <Footer />
-    </main>
-  );
-}
+
 
 // Auth pages
 function Login() {

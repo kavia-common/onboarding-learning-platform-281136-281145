@@ -46,9 +46,9 @@ export function CoursesProvider({ children }) {
     return ()=> { active = false; };
   }, []);
 
-  const getCourse = (id) => courses.find(c => String(c.id) === String(id));
+  const getCourse = React.useCallback((id) => courses.find(c => String(c.id) === String(id)), [courses]);
 
-  const value = useMemo(()=>({ courses, getCourse }), [courses]);
+  const value = useMemo(()=>({ courses, getCourse }), [courses, getCourse]);
 
   return <CoursesContext.Provider value={value}>{children}</CoursesContext.Provider>;
 }

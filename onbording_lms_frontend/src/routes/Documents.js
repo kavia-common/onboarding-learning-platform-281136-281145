@@ -8,7 +8,7 @@ import { postAcknowledgements } from '../utils/api';
 // PUBLIC_INTERFACE
 export default function Documents() {
   /** Documents onboarding page simplified to list and action only (viewer block removed). */
-  const [state, setState] = useState(() => loadAckState());
+  const [state] = useState(() => loadAckState());
   const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved
   const [docStatus, setDocStatus] = useState(() => getDocumentsStatus());
 

@@ -104,35 +104,34 @@ export default function AdminInboxPreview() {
   }, [doc, inboxItem]);
 
   useEffect(() => {
+    let revoker = null;
     if (!dataUrl) {
       setErr('No PDF available for this item.');
       setSrc('');
-      return;
+      return () => {};
     }
     if (!isPdfDataUrl(dataUrl)) {
       setErr('Malformed document data. Expected a PDF data URL.');
       setSrc('');
-      return;
+      return () => {};
     }
-    // If dataURL is very large, prefer Blob URL for stability in Chrome
     try {
       const approxLen = dataUrl.length;
-      // Threshold ~1 MB data URL length (base64 expands by ~4/3; conservatively pick 500k chars)
       if (approxLen > 500_000) {
         const blobUrl = makeBlobUrlFromPdfDataUrl(dataUrl);
         if (blobUrl) {
           setSrc(blobUrl);
-          return () => {
-            URL.revokeObjectURL(blobUrl);
-          };
+          revoker = () => { try { URL.revokeObjectURL(blobUrl); } catch {} };
+          return () => { if (revoker) revoker(); };
         }
       }
+      // Even when using dataUrl, ensure previous blob (if any) is revoked on re-run
       setSrc(dataUrl);
     } catch (e) {
       setErr('Failed to prepare the PDF preview.');
       setSrc('');
     }
-    return undefined;
+    return () => { if (revoker) revoker(); };
   }, [dataUrl]);
 
   const onBack = () => navigate('/admin/inbox', { replace: true });
@@ -177,7 +176,9 @@ export default function AdminInboxPreview() {
         ) : (
           <section style={{ display: 'grid', gap: 12 }}>
             <div style={{ background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
-              {/* Inline iframe render; src is either the original data URL or a Blob object URL */}
+              {/* Inline iframe render; src is either the original data URL or a Blob object URL.
+                  No sandbox attribute is set to avoid blocking inline PDF display under typical CSP.
+                  We do not call window.open and we do not set target attributes. */}
               <iframe
                 title="PDF preview"
                 src={src}

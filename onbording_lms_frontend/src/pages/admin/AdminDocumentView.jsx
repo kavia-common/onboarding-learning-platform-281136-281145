@@ -82,7 +82,13 @@ export default function AdminDocumentView() {
           <p style={{ marginTop: 0, color: '#92400e' }}>
             This file type might not be embeddable. You can navigate to the resource directly.
           </p>
-          <a href={src} style={{ color: ocean.primary, textDecoration: 'none', border: '1px solid #c7d2fe', padding: '6px 10px', borderRadius: 8 }}>
+          <a
+            href={src}
+            rel="noreferrer"
+            style={{ color: ocean.primary, textDecoration: 'none', border: '1px solid #c7d2fe', padding: '6px 10px', borderRadius: 8 }}
+            title="Open resource"
+            aria-label="Open resource"
+          >
             Go to resource
           </a>
         </div>
@@ -126,8 +132,8 @@ export default function AdminDocumentView() {
         <p style={{ marginTop: 0, color: '#92400e' }}>
           Preview not available for this file type.
         </p>
-        <a href={src} target="_blank" rel="noreferrer" style={{ color: ocean.primary }}>
-          Open in new tab
+        <a href={src} rel="noreferrer" style={{ color: ocean.primary }}>
+          Open
         </a>
       </div>
     );

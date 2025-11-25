@@ -478,11 +478,19 @@ export default function AdminInbox() {
                               dataUrl={cocUrl}
                               onOpen={(src) => openModal(src, `Code of Conduct — ${email}`)}
                               navigateToFullPage={() => {
-                                // In-page SPA navigation to preview route
-                                const idParam = String(rows.length - 1 - idx); // account for reverse order
-                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/coc`);
-                                // Soft reload of router by dispatching a popstate so React Router picks up
-                                window.dispatchEvent(new PopStateEvent('popstate'));
+                                const idParam = String(rows.length - 1 - idx);
+                                // Use React Router SPA navigation instead of manipulating history directly
+                                const nav = (path) => {
+                                  try {
+                                    const event = new CustomEvent('router:navigate', { detail: { path } });
+                                    window.dispatchEvent(event);
+                                  } catch {
+                                    // fallback to history API without opening a new tab
+                                    window.history.pushState({}, '', path);
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                  }
+                                };
+                                nav(`/admin/inbox/preview/${encodeURIComponent(idParam)}/coc`);
                               }}
                             />
                             <DownloadLink
@@ -497,8 +505,16 @@ export default function AdminInbox() {
                               onOpen={(src) => openModal(src, `NDA — ${email}`)}
                               navigateToFullPage={() => {
                                 const idParam = String(rows.length - 1 - idx);
-                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/nda`);
-                                window.dispatchEvent(new PopStateEvent('popstate'));
+                                const nav = (path) => {
+                                  try {
+                                    const event = new CustomEvent('router:navigate', { detail: { path } });
+                                    window.dispatchEvent(event);
+                                  } catch {
+                                    window.history.pushState({}, '', path);
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                  }
+                                };
+                                nav(`/admin/inbox/preview/${encodeURIComponent(idParam)}/nda`);
                               }}
                             />
                             <DownloadLink
@@ -513,8 +529,16 @@ export default function AdminInbox() {
                               onOpen={(src) => openModal(src, `Offer Letter — ${email}`)}
                               navigateToFullPage={() => {
                                 const idParam = String(rows.length - 1 - idx);
-                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/offer`);
-                                window.dispatchEvent(new PopStateEvent('popstate'));
+                                const nav = (path) => {
+                                  try {
+                                    const event = new CustomEvent('router:navigate', { detail: { path } });
+                                    window.dispatchEvent(event);
+                                  } catch {
+                                    window.history.pushState({}, '', path);
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                  }
+                                };
+                                nav(`/admin/inbox/preview/${encodeURIComponent(idParam)}/offer`);
                               }}
                             />
                             <DownloadLink

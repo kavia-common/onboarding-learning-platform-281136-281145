@@ -285,6 +285,26 @@ function OnboardingWizard() {
   );
 }
 
+function NavigationBridgeInner() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const handler = (e) => {
+      const path = e?.detail?.path;
+      if (typeof path === 'string') {
+        navigate(path);
+      }
+    };
+    window.addEventListener('router:navigate', handler);
+    return () => window.removeEventListener('router:navigate', handler);
+  }, [navigate]);
+  return null;
+}
+
+function NavigationBridge() {
+  // Wrapper to place the hook within Router context
+  return <NavigationBridgeInner />;
+}
+
 function AdminRouteGuard({ children }) {
   // PUBLIC_INTERFACE
   /**
@@ -388,6 +408,7 @@ function App() {
               <div className="App" style={{ textAlign: 'initial' }}>
                 <Router>
                   <Navbar />
+                  <NavigationBridge />
                   {previewBanner}
                   {mockBanner}
                   <button

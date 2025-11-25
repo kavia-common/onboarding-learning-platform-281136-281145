@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import './App.css';
 import Documents from './routes/Documents';
 import { useAuth } from './store/authStore';
-import { FeatureFlagsProvider, useFeatureFlags } from './store/featureFlags';
+import { FeatureFlagsProvider } from './store/featureFlags';
 import { ToastProvider, useToast } from './components/ui/Toast';
-import ProtectedRoute from './components/routing/ProtectedRoute';
 import { AuthProvider } from './store/authStore';
 import { CoursesProvider } from './store/courseStore';
 import { ProgressProvider } from './store/progressStore';
@@ -24,7 +23,6 @@ function Sidebar() {
   if (PREVIEW_ONLY) return null;
   return (
     <aside
-      role="complementary"
       aria-label="Sidebar"
       className="card"
       style={{ padding: 16, position: 'sticky', top: 64, alignSelf: 'start' }}

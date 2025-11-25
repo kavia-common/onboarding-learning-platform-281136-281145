@@ -4,7 +4,6 @@ import { isAdminEmail } from '../utils/adminLocalStorage';
 
 const STORAGE_KEY = 'lms_auth';
 const USERS_KEY = 'lms_users_v1'; // local user registry (fallback)
-const ADMIN_INBOX_KEY = 'dt3_admin_inbox'; // stores admin submissions
 const ADMIN_SEED_FLAG = 'dt3_admin_seeded_v1';
 
 function demoDigest(input) {

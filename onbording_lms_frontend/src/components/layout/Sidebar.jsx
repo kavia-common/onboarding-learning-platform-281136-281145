@@ -14,7 +14,7 @@ export default function Sidebar() {
     { id: 'security', name: 'Security', to: '/courses?cat=security' },
   ];
   return (
-    <aside role="complementary" aria-label="Course categories" className="card" style={{ padding: 16, position: 'sticky', top: 64, alignSelf: 'start' }}>
+    <aside aria-label="Course categories" className="card" style={{ padding: 16, position: 'sticky', top: 64, alignSelf: 'start' }}>
       <h3 style={{ marginTop: 0 }}>Categories</h3>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
         {categories.map(cat => (

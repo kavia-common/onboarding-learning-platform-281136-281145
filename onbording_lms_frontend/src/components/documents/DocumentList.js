@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getDocumentsStatus } from '../../utils/documentsStatus';
 import styles from './DocumentList.module.css';
 
@@ -9,7 +9,6 @@ import styles from './DocumentList.module.css';
  * Shows a list of documents with status and a button to view details.
  */
 export default function DocumentList({ items, onOpen }) {
-  const navigate = useNavigate();
 
   // map document keys to dedicated routes for deep viewing
   const routeFor = (key) => {

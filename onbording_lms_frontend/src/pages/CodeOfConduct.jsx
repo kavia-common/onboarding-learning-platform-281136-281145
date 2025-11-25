@@ -234,7 +234,6 @@ const CodeOfConduct = () => {
       } else {
         // Add multi-page if needed
         let remainingHeight = contentHeight;
-        let imgY = y;
         const pageCanvasHeight = (pageHeight - 48) * (canvas.height / contentHeight);
 
         // Create slices

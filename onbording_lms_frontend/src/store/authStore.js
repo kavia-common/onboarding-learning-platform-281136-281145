@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getSupabaseClient } from '../lib/supabaseClient';
+import { isAdminEmail } from '../utils/adminLocalStorage';
 
 const STORAGE_KEY = 'lms_auth';
 const USERS_KEY = 'lms_users_v1'; // local user registry (fallback)
@@ -57,10 +58,18 @@ export function AuthProvider({ children }) {
    * Uses Supabase auth if configured; otherwise falls back to local-only mode.
    * - Session stored in localStorage (STORAGE_KEY) for quick restore
    * - Role derived from Supabase user_metadata.app_role or defaults to 'user'
+   * - currentUserIsAdmin derived from localStorage map (non-secure)
    */
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false);
+
+  const recomputeAdmin = useCallback((maybeUser) => {
+    const email = maybeUser?.email || '';
+    const isAdmin = email ? isAdminEmail(email) : false;
+    setCurrentUserIsAdmin(!!isAdmin);
+  }, []);
 
   // Session bootstrap + admin seeding for local fallback
   useEffect(() => {
@@ -87,15 +96,17 @@ export function AuthProvider({ children }) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setUser(parsed?.user || null);
+        const restoredUser = parsed?.user || null;
+        setUser(restoredUser);
         setToken(parsed?.token || '');
+        recomputeAdmin(restoredUser);
       }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [recomputeAdmin]);
 
   // Subscribe to Supabase auth state if available
   useEffect(() => {
@@ -112,6 +123,7 @@ export function AuthProvider({ children }) {
       const accessToken = session?.access_token || '';
       setUser(mapped);
       setToken(accessToken);
+      recomputeAdmin(mapped);
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: mapped, token: accessToken }));
       } catch {
@@ -125,6 +137,7 @@ export function AuthProvider({ children }) {
       const accessToken = session?.access_token || '';
       setUser(mapped);
       setToken(accessToken);
+      recomputeAdmin(mapped);
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: mapped, token: accessToken }));
       } catch {
@@ -136,7 +149,7 @@ export function AuthProvider({ children }) {
       isMounted = false;
       sub?.subscription?.unsubscribe?.();
     };
-  }, []);
+  }, [recomputeAdmin]);
 
   const persist = useCallback((next) => {
     try {
@@ -187,6 +200,7 @@ export function AuthProvider({ children }) {
         const accessToken = data.session?.access_token || '';
         setUser(mapped);
         setToken(accessToken);
+        recomputeAdmin(mapped);
         persist({ user: mapped, token: accessToken });
         return true;
       } catch (err) {
@@ -213,9 +227,10 @@ export function AuthProvider({ children }) {
     const session = { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role || 'user' }, token: `local-${newUser.id}` };
     setUser(session.user);
     setToken(session.token);
+    recomputeAdmin(session.user);
     persist(session);
     return true;
-  }, [persist]);
+  }, [persist, recomputeAdmin]);
 
   // PUBLIC_INTERFACE
   const login = useCallback(async (email, password) => {
@@ -239,6 +254,7 @@ export function AuthProvider({ children }) {
         const accessToken = data.session?.access_token || '';
         setUser(mapped);
         setToken(accessToken);
+        recomputeAdmin(mapped);
         persist({ user: mapped, token: accessToken });
         return true;
       } catch (err) {
@@ -257,9 +273,10 @@ export function AuthProvider({ children }) {
     const session = { user: { id: found.id, email: found.email, name: found.name, role }, token: `local-${found.id}` };
     setUser(session.user);
     setToken(session.token);
+    recomputeAdmin(session.user);
     persist(session);
     return true;
-  }, [persist]);
+  }, [persist, recomputeAdmin]);
 
   // PUBLIC_INTERFACE
   const logout = useCallback(async () => {
@@ -278,6 +295,7 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     setToken('');
+    setCurrentUserIsAdmin(false);
     persist({ user: null, token: '' });
   }, [persist]);
 
@@ -299,13 +317,14 @@ export function AuthProvider({ children }) {
       if (user?.email === e) {
         const nextUser = { ...user, role: 'admin' };
         setUser(nextUser);
+        recomputeAdmin(nextUser);
         persist({ user: nextUser, token });
       }
       return true;
     } catch {
       return false;
     }
-  }, [user, token, persist]);
+  }, [user, token, persist, recomputeAdmin]);
 
   // PUBLIC_INTERFACE
   const getCurrentUserRole = useCallback(async () => {
@@ -351,6 +370,7 @@ export function AuthProvider({ children }) {
         }
         const nextUser = { ...user, role };
         setUser(nextUser);
+        recomputeAdmin(nextUser);
         persist({ user: nextUser, token });
         return { ok: true };
       } catch (err) {
@@ -371,18 +391,20 @@ export function AuthProvider({ children }) {
       const accessToken = sessionData?.session?.access_token || '';
       setUser(mapped);
       setToken(accessToken);
+      recomputeAdmin(mapped);
       persist({ user: mapped, token: accessToken });
       return { ok: true };
     } catch (err) {
       return { ok: false, message: (err && err.message) || 'Failed to update role' };
     }
-  }, [user, token, persist]);
+  }, [user, token, persist, recomputeAdmin]);
 
   const value = useMemo(
     () => ({
       user,
       token,
       loading,
+      currentUserIsAdmin, // expose derived flag
       register,
       login,
       logout,
@@ -390,7 +412,7 @@ export function AuthProvider({ children }) {
       getCurrentUserRole,
       updateCurrentUserRole,
     }),
-    [user, token, loading, register, login, logout, makeAdmin, getCurrentUserRole, updateCurrentUserRole]
+    [user, token, loading, currentUserIsAdmin, register, login, logout, makeAdmin, getCurrentUserRole, updateCurrentUserRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -19,9 +19,9 @@ const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').
 
 // Layout components
 function NavBar() {
-  const { user } = useAuth();
+  const { user, currentUserIsAdmin } = useAuth();
   const { flags } = useFeatureFlags();
-  const isAdmin = Boolean(user?.role === 'admin');
+  const isAdmin = Boolean(user?.role === 'admin' || currentUserIsAdmin === true);
   // Lazy import to avoid circulars
   const RoleBadge = React.useMemo(() => require('./components/ui/RoleBadge.jsx').default, []);
 
@@ -367,8 +367,8 @@ function OnboardingWizard() {
 function AdminRouteGuard({ children }) {
   // PUBLIC_INTERFACE
   /** Guard that allows only admin users */
-  const { user } = useAuth();
-  if (!user || user.role !== 'admin') {
+  const { user, currentUserIsAdmin } = useAuth();
+  if (!user || (user.role !== 'admin' && currentUserIsAdmin !== true)) {
     return <Navigate to="/" replace />;
   }
   return children;

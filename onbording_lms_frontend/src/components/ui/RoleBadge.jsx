@@ -8,8 +8,8 @@ import { useAuth } from '../../store/authStore';
  * Accessible with appropriate aria-label and follows Ocean Professional theme.
  */
 export default function RoleBadge() {
-  const { user } = useAuth();
-  const role = user?.role || 'user';
+  const { user, currentUserIsAdmin } = useAuth();
+  const role = currentUserIsAdmin ? 'admin' : (user?.role || 'user');
   const color =
     role === 'admin'
       ? 'linear-gradient(90deg, rgba(37,99,235,0.12), rgba(245,158,11,0.12))'

@@ -307,17 +307,29 @@ function OpenInPageButton({ dataUrl, title }) {
   );
 }
 
-function ViewPdfInlineButton({ label, dataUrl, onOpen }) {
+function ViewPdfInlineButton({ label, dataUrl, onOpen, navigateToFullPage }) {
   const disabled = !isPdfDataUrl(ensurePdfPrefix(dataUrl));
   return (
-    <OceanButton
-      disabled={disabled}
-      onClick={() => onOpen?.(ensurePdfPrefix(dataUrl), label)}
-      ariaLabel={`${label}${disabled ? ' (not available)' : ''}`}
-      title={disabled ? `${label} not available` : `View ${label}`}
-    >
-      View
-    </OceanButton>
+    <div style={{ display: 'inline-flex', gap: 6 }}>
+      <OceanButton
+        disabled={disabled}
+        onClick={() => onOpen?.(ensurePdfPrefix(dataUrl), label)}
+        ariaLabel={`${label}${disabled ? ' (not available)' : ''}`}
+        title={disabled ? `${label} not available` : `View ${label}`}
+      >
+        View
+      </OceanButton>
+      {/* Always prefer in-page full preview route; avoids popups/blocked by client */}
+      <OceanButton
+        variant="subtle"
+        disabled={disabled}
+        onClick={navigateToFullPage}
+        ariaLabel={`Open ${label} full-page preview`}
+        title={`Open ${label} full-page preview`}
+      >
+        Full Page
+      </OceanButton>
+    </div>
   );
 }
 
@@ -465,6 +477,13 @@ export default function AdminInbox() {
                               label="Code of Conduct"
                               dataUrl={cocUrl}
                               onOpen={(src) => openModal(src, `Code of Conduct — ${email}`)}
+                              navigateToFullPage={() => {
+                                // In-page SPA navigation to preview route
+                                const idParam = String(rows.length - 1 - idx); // account for reverse order
+                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/coc`);
+                                // Soft reload of router by dispatching a popstate so React Router picks up
+                                window.dispatchEvent(new PopStateEvent('popstate'));
+                              }}
                             />
                             <DownloadLink
                               dataUrl={cocUrl}
@@ -476,6 +495,11 @@ export default function AdminInbox() {
                               label="NDA"
                               dataUrl={ndaUrl}
                               onOpen={(src) => openModal(src, `NDA — ${email}`)}
+                              navigateToFullPage={() => {
+                                const idParam = String(rows.length - 1 - idx);
+                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/nda`);
+                                window.dispatchEvent(new PopStateEvent('popstate'));
+                              }}
                             />
                             <DownloadLink
                               dataUrl={ndaUrl}
@@ -487,6 +511,11 @@ export default function AdminInbox() {
                               label="Offer Letter"
                               dataUrl={offerUrl}
                               onOpen={(src) => openModal(src, `Offer Letter — ${email}`)}
+                              navigateToFullPage={() => {
+                                const idParam = String(rows.length - 1 - idx);
+                                window.history.pushState({}, '', `/admin/inbox/preview/${encodeURIComponent(idParam)}/offer`);
+                                window.dispatchEvent(new PopStateEvent('popstate'));
+                              }}
                             />
                             <DownloadLink
                               dataUrl={offerUrl}

@@ -457,6 +457,9 @@ function App() {
                       path="/admin/inbox/preview/:id/:doc"
                       element={
                         <AdminRouteGuard>
+                          {/* Full in-app PDF preview for Admin Inbox items.
+                              Important: This route is used instead of window.open or target=_blank
+                              to avoid Chrome extensions blocking popups (ERR_BLOCKED_BY_CLIENT). */}
                           <AdminInboxPreview />
                         </AdminRouteGuard>
                       }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentCompleted } from "../utils/documentsStatus";
+import { useToast } from "../components/ui/Toast";
 
 /**
  * PUBLIC_INTERFACE
@@ -44,6 +45,7 @@ const NDAAgreement = ({
   dt3Date = "",
 }) => {
   const navigate = useNavigate();
+  const { push } = useToast();
   // controlled states
   const [consultantName, setConsultantName] = useState(propName);
   const [consultantTitle, setConsultantTitle] = useState(propTitle);
@@ -57,6 +59,9 @@ const NDAAgreement = ({
   // UI state
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const exportRef = useRef(null);
 
   // hydrate from localStorage (namespaced)
   useEffect(() => {
@@ -185,6 +190,92 @@ const NDAAgreement = ({
     };
   }, []);
 
+  // Attempt to lazy-load html2canvas and jsPDF via CDN (no hard deps)
+  async function ensurePdfLibs() {
+    if (typeof window === "undefined") return { html2canvas: null, jsPDF: null };
+    try {
+      await import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+    } catch { /* ignore */ }
+    try {
+      await import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+    } catch { /* ignore */ }
+    const html2canvas = window.html2canvas || null;
+    const jsPDF = window.jspdf ? (window.jspdf.jsPDF || window.jspdf?.default?.jsPDF) : null;
+    return { html2canvas, jsPDF };
+  }
+
+  async function handleExportPdf() {
+    setExportError("");
+    if (!isValid) {
+      const msg = "Fill name, title, date and upload signature before exporting.";
+      setExportError(msg);
+      try { push({ type: "error", message: msg }); } catch { /* ignore */ }
+      return;
+    }
+    setExporting(true);
+    try {
+      const { html2canvas, jsPDF } = await ensurePdfLibs();
+      const node = exportRef.current;
+      if (!html2canvas || !jsPDF || !node) {
+        // fallback to window.print
+        window.print();
+        setExporting(false);
+        try { push({ type: "info", message: "Using browser print as a fallback." }); } catch {}
+        return;
+      }
+      node.classList.add("print-ready");
+
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 24;
+      const maxW = pageWidth - margin * 2;
+      const ratio = canvas.width / canvas.height;
+      const contentH = maxW / ratio;
+
+      if (contentH <= pageHeight - margin * 2) {
+        pdf.addImage(imgData, "PNG", margin, margin, maxW, contentH, undefined, "FAST");
+      } else {
+        let remainingHeight = contentH;
+        const pageCanvasHeight = (pageHeight - margin * 2) * (canvas.height / contentH);
+        const pageCanvas = document.createElement("canvas");
+        const pageCtx = pageCanvas.getContext("2d");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = pageCanvasHeight;
+
+        let sY = 0;
+        while (remainingHeight > 0) {
+          pageCtx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(canvas, 0, sY, canvas.width, pageCanvasHeight, 0, 0, canvas.width, pageCanvasHeight);
+          const pageImg = pageCanvas.toDataURL("image/png");
+          pdf.addImage(pageImg, "PNG", margin, margin, maxW, (maxW / ratio), undefined, "FAST");
+          remainingHeight -= (pageHeight - margin * 2);
+          sY += pageCanvasHeight;
+          if (remainingHeight > 0) pdf.addPage();
+        }
+      }
+
+      const safeName = String(consultantName || "consultant").trim().replace(/\s+/g, "_");
+      pdf.save(`nda_${safeName}.pdf`);
+      try { push({ type: "success", message: "NDA exported as PDF." }); } catch {}
+      node.classList.remove("print-ready");
+    } catch (e) {
+      setExportError("Could not generate PDF. Using browser print as fallback.");
+      try { push({ type: "error", message: "PDF export failed. Falling back to print." }); } catch {}
+      try { window.print(); } catch {}
+    } finally {
+      setExporting(false);
+    }
+  }
+
   // Signature display block for the printed/previewed layout
   function SignatureLineOrThumb() {
     if (sigDataUrl) {
@@ -220,6 +311,7 @@ const NDAAgreement = ({
       </style>
 
       <div
+        ref={exportRef}
         className="card"
         style={{
           padding: 24,
@@ -499,6 +591,23 @@ const NDAAgreement = ({
             </div>
           </div>
         </form>
+
+        {exportError && (
+          <div
+            role="alert"
+            className="card"
+            style={{
+              borderLeft: "4px solid var(--error)",
+              padding: "8px 10px",
+              background: "rgba(239,68,68,0.06)",
+              color: "var(--text-primary)",
+              fontSize: 14,
+              marginTop: 8,
+            }}
+          >
+            {exportError}
+          </div>
+        )}
 
         {/* DT3 side remains display-only per the provided layout */}
         <hr style={{ margin: "24px 0", borderColor: "var(--border-color)" }} />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentCompleted } from "../utils/documentsStatus";
+import { useToast } from "../components/ui/Toast";
 
 /**
  * PUBLIC_INTERFACE
@@ -67,6 +68,8 @@ const CodeOfConduct = () => {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  // Always call hooks in consistent order
+  const { push } = useToast();
 
   // Keep track of an object URL for thumbnail preview to avoid memory leaks
   const objectUrlRef = useRef(null);
@@ -186,7 +189,9 @@ const CodeOfConduct = () => {
   const handleExportPdf = async () => {
     setExportError("");
     if (!isValid) {
-      setExportError("Enter your name and upload a signature before exporting.");
+      const msg = "Enter your name and upload a signature before exporting.";
+      setExportError(msg);
+      try { push({ type: "error", message: msg }); } catch { /* ignore */ }
       return;
     }
     setExporting(true);
@@ -198,6 +203,7 @@ const CodeOfConduct = () => {
       if (!html2canvas || !jsPDF || !node) {
         window.print();
         setExporting(false);
+        try { push({ type: "info", message: "Using browser print as a fallback." }); } catch {}
         return;
       }
 
@@ -226,11 +232,10 @@ const CodeOfConduct = () => {
       const ratio = canvas.width / canvas.height;
       const contentHeight = contentWidth / ratio;
 
-      let y = 24;
       const x = 24;
 
       if (contentHeight < pageHeight - 48) {
-        pdf.addImage(imgData, "PNG", x, y, contentWidth, contentHeight, undefined, "FAST");
+        pdf.addImage(imgData, "PNG", x, 24, contentWidth, contentHeight, undefined, "FAST");
       } else {
         // Add multi-page if needed
         let remainingHeight = contentHeight;
@@ -255,11 +260,13 @@ const CodeOfConduct = () => {
       }
 
       const safeName = String(name || "employee").trim().replace(/\s+/g, "_");
-      pdf.save(`Code_of_Conduct_${safeName}.pdf`);
+      pdf.save(`code_of_conduct_${safeName}.pdf`);
+      try { push({ type: "success", message: "Code of Conduct exported as PDF." }); } catch {}
 
       node.classList.remove("print-ready");
     } catch (e) {
       setExportError("Could not generate PDF. Using browser print as fallback.");
+      try { push({ type: "error", message: "PDF export failed. Falling back to print." }); } catch {}
       try {
         window.print();
       } catch {

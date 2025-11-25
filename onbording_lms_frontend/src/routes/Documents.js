@@ -9,36 +9,33 @@ import { appendInboxItem } from '../utils/adminInbox';
 // Lightweight, client-only PDF generation using CDN libs (no hard deps).
 // We attempt to render small HTML snippets for each document into a canvas and embed into a PDF via jsPDF.
 // If libraries fail to load, we gracefully fall back to a minimal text-only PDF using jsPDF if available.
+// Limitations: client-side rasterization can slightly change fonts/layout. This is acceptable for preview and archival.
+// Guard for SSR by checking for 'window' before DOM access.
 async function ensurePdfLibs() {
+  if (typeof window === 'undefined') return { html2canvas: null, jsPDF: null };
   try {
-    // Use CDN without bundling; CRA will ignore via webpackIgnore comments when supported by bundler.
     await import(/* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
-  } catch {
-    // ignore - html2canvas may still be available on window if cached
-  }
+  } catch { /* ignore */ }
   try {
     await import(/* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-  } catch {
-    // ignore
-  }
-  const html2canvas = typeof window !== 'undefined' ? window.html2canvas : null;
-  const jsPDF = typeof window !== 'undefined' && window.jspdf ? (window.jspdf.jsPDF || window.jspdf?.default?.jsPDF) : null;
+  } catch { /* ignore */ }
+  const html2canvas = window.html2canvas || null;
+  const jsPDF = window.jspdf ? (window.jspdf.jsPDF || window.jspdf?.default?.jsPDF) : null;
   return { html2canvas, jsPDF };
 }
 
-// Generate a PDF Data URL for provided HTML content.
 // PUBLIC_INTERFACE
 async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
   /** Renders given HTML string into a PDF and returns a data URL (base64). Returns '' on failure. */
+  if (typeof window === 'undefined') return '';
   const { html2canvas, jsPDF } = await ensurePdfLibs();
   try {
-    // Create a hidden container to render the HTML for capture
     const container = document.createElement('div');
     container.setAttribute('aria-hidden', 'true');
     container.style.position = 'fixed';
     container.style.left = '-10000px';
     container.style.top = '0';
-    container.style.width = '794px'; // approx A4 width at 96dpi
+    container.style.width = '794px';
     container.style.background = '#ffffff';
     container.style.color = '#111827';
     container.innerHTML = html;
@@ -89,7 +86,6 @@ async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
 
       dataUrl = pdf.output('datauristring');
     } else if (jsPDF) {
-      // Fallback: simple text PDF if html2canvas unavailable
       const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
       pdf.setFontSize(12);
       const margin = 24;
@@ -105,7 +101,7 @@ async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
   }
 }
 
-// Build minimal HTML snapshots for each document using data available in localStorage.
+// Build minimal HTML snapshots from localStorage data to keep generation fast and robust.
 // PUBLIC_INTERFACE
 function buildDocHtmlSnapshots() {
   /**
@@ -113,9 +109,9 @@ function buildDocHtmlSnapshots() {
    * { codeOfConductHtml?, ndaHtml?, offerHtml? }
    * These are compact, branded snapshots sufficient for record-keeping and preview.
    */
+  if (typeof window === 'undefined') return { codeOfConductHtml: null, ndaHtml: null, offerHtml: null };
   const now = new Date().toLocaleString();
 
-  // Code of Conduct
   let codeOfConductHtml = null;
   try {
     const raw = window.localStorage.getItem('code_of_conduct_ack_v1');
@@ -136,7 +132,6 @@ function buildDocHtmlSnapshots() {
     }
   } catch { /* ignore */ }
 
-  // NDA
   let ndaHtml = null;
   try {
     const raw = window.localStorage.getItem('nda_agreement_form_v1');
@@ -159,7 +154,6 @@ function buildDocHtmlSnapshots() {
     }
   } catch { /* ignore */ }
 
-  // Offer Letter
   let offerHtml = null;
   try {
     const raw = window.localStorage.getItem('offer_letter_signature_v1');
@@ -189,10 +183,8 @@ export default function Documents() {
   const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved
   const [docStatus, setDocStatus] = useState(() => getDocumentsStatus());
 
-  // Refresh statuses from localStorage on mount and when returning back from doc pages
   useEffect(() => {
     const onFocus = () => setDocStatus(getDocumentsStatus());
-    // initial sync
     onFocus();
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus);
@@ -205,7 +197,6 @@ export default function Documents() {
     [state.code_of_conduct, state.nda, state.internship_letter]
   );
 
-  // Derive canContinue from documentsStatus store
   const allDone =
     docStatus.codeOfConduct === 'Completed' &&
     docStatus.nda === 'Completed' &&
@@ -217,10 +208,8 @@ export default function Documents() {
     setSubmitStatus('saving');
     saveAckState(state);
 
-    // Build detailed payload from individual localStorage keys
     const nowIso = new Date().toISOString();
 
-    // Code of Conduct data
     let codeOfConduct = null;
     try {
       const raw = window.localStorage.getItem('code_of_conduct_ack_v1');
@@ -236,7 +225,6 @@ export default function Documents() {
       }
     } catch { /* ignore */ }
 
-    // NDA data
     let nda = null;
     try {
       const raw = window.localStorage.getItem('nda_agreement_form_v1');
@@ -254,7 +242,6 @@ export default function Documents() {
       }
     } catch { /* ignore */ }
 
-    // Offer Letter data
     let offerLetter = null;
     try {
       const raw = window.localStorage.getItem('offer_letter_signature_v1');
@@ -269,7 +256,6 @@ export default function Documents() {
       }
     } catch { /* ignore */ }
 
-    // Identify submitter from session
     let submittedBy = 'anonymous';
     try {
       const authRaw = window.localStorage.getItem('lms_auth');
@@ -277,8 +263,6 @@ export default function Documents() {
       submittedBy = auth?.user?.email || 'anonymous';
     } catch { /* ignore */ }
 
-    // 1) Generate PDFs (Data URLs) using lightweight client-side approach for each applicable document.
-    // We create small HTML snapshots and render them. If generation fails, fields remain undefined.
     let codeOfConductPdf = '';
     let ndaPdf = '';
     let offerLetterPdf = '';
@@ -287,31 +271,23 @@ export default function Documents() {
       if (codeOfConductHtml) codeOfConductPdf = await renderPdfDataUrlFromHtml(codeOfConductHtml, 'Code_of_Conduct');
       if (ndaHtml) ndaPdf = await renderPdfDataUrlFromHtml(ndaHtml, 'NDA_Agreement');
       if (offerHtml) offerLetterPdf = await renderPdfDataUrlFromHtml(offerHtml, 'Offer_Letter');
-    } catch {
-      // ignore generation errors; PDFs are optional
-    }
+    } catch { /* ignore */ }
 
-    // 2) Build inbox item per requested schema, including optional PDF data URLs.
     const inboxItem = {
       email: submittedBy || 'anonymous',
       submittedAt: new Date().toLocaleString(),
       codeOfConduct: docStatus.codeOfConduct === 'Completed',
       nda: docStatus.nda === 'Completed',
       offerLetter: docStatus.offerLetter === 'Completed',
-      // Optional attachments (base64 data URLs)
       ...(codeOfConductPdf ? { codeOfConductPdf } : {}),
       ...(ndaPdf ? { ndaPdf } : {}),
       ...(offerLetterPdf ? { offerLetterPdf } : {}),
     };
 
-    // 3) Persist to localStorage under admin_inbox_v2 (append)
     try {
       appendInboxItem(inboxItem);
-    } catch {
-      // ignore storage failures
-    }
+    } catch { /* ignore */ }
 
-    // Keep existing local acknowledgement posting (no-op without API base)
     const payload = {
       userId: 'local-session',
       documents: [state.code_of_conduct, state.nda, state.internship_letter].map((d) => ({
@@ -332,7 +308,7 @@ export default function Documents() {
       style={{
         minHeight: '100vh',
         background: '#f9fafb',
-        padding: 12, // reduced outer padding
+        padding: 12,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -343,9 +319,9 @@ export default function Documents() {
           margin: '0 auto',
           display: 'grid',
           gridTemplateColumns: '320px 1fr',
-          gap: 12, // reduced gap between columns/sections
+          gap: 12,
           width: '100%',
-          flex: 1, // allow content to grow so footer sticks to bottom
+          flex: 1,
         }}
       >
         <aside>
@@ -353,17 +329,17 @@ export default function Documents() {
             style={{
               background: '#ffffff',
               border: '1px solid #e5e7eb',
-              borderRadius: 10, // slightly tighter radius
+              borderRadius: 10,
               padding: 0,
-              boxShadow: '0 3px 8px rgba(0,0,0,0.04)', // slightly lighter shadow
-              marginBottom: 8, // reduce bottom spacing
+              boxShadow: '0 3px 8px rgba(0,0,0,0.04)',
+              marginBottom: 8,
               overflow: 'hidden',
             }}
           >
             <div
               aria-hidden="true"
               style={{
-                height: 36, // slightly shorter header band
+                height: 36,
                 background: 'linear-gradient(90deg, rgba(37,99,235,0.08), rgba(249,250,251,0.6))',
                 borderBottom: '1px solid #e5e7eb',
               }}
@@ -379,13 +355,10 @@ export default function Documents() {
           <DocumentList items={items} />
         </aside>
 
-        {/* Right side content area reserved for future extensions */}
         <section aria-label="Content" style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
-          {/* Intentionally empty for now to remove top-right action bar */}
         </section>
       </div>
 
-      {/* Sticky bottom action bar that does not overlap content */}
       <div
         role="region"
         aria-label="Document actions"
@@ -396,15 +369,15 @@ export default function Documents() {
           width: '100%',
           background: 'linear-gradient(to top, rgba(249,250,251,0.98), rgba(249,250,251,0.75))',
           borderTop: '1px solid #e5e7eb',
-          padding: '8px 0', // reduced vertical padding for shorter bar
-          marginTop: 10, // slightly tighter spacing from content
+          padding: '8px 0',
+          marginTop: 10,
         }}
       >
         <div
           style={{
             maxWidth: 1100,
             margin: '0 auto',
-            padding: '0 12px', // reduce side padding
+            padding: '0 12px',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
@@ -429,8 +402,8 @@ export default function Documents() {
               background: canContinue ? 'var(--primary)' : '#93C5FD',
               color: '#fff',
               borderRadius: 10,
-              padding: '8px 12px', // reduced button padding to match shorter bar
-              minWidth: 128, // slightly narrower while remaining accessible
+              padding: '8px 12px',
+              minWidth: 128,
               cursor: canContinue ? 'pointer' : 'not-allowed',
               boxShadow: canContinue ? '0 6px 18px rgba(37,99,235,0.25)' : 'none',
             }}

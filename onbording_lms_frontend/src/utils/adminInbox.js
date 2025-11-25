@@ -14,24 +14,18 @@
 // }
 //
 // Storage key: 'admin_inbox_v2'
-// - We do NOT break existing data. Existing entries (from earlier versions) are preserved.
-// - New items are appended safely.
+// - Existing entries are preserved; new items appended safely.
 // - Consumers should be resilient to missing fields.
+// - PDFs should be 'data:application/pdf;base64,...'
 //
-// Includes:
-// - safeParse JSON
-// - SSR guard for window access
-// - subscribe() to listen to storage changes across tabs
+// Includes SSR guards and safe JSON parsing.
 //
-
-const INBOX_KEY = 'admin_inbox_v2';
-
 // PUBLIC_INTERFACE
 export function getInboxItems() {
   /** Returns a list of inbox items from localStorage, resilient to parse errors and SSR. */
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(INBOX_KEY);
+    const raw = window.localStorage.getItem('admin_inbox_v2');
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -47,11 +41,26 @@ export function appendInboxItem(item) {
    */
   if (typeof window === 'undefined') return false;
   try {
-    const existing = getInboxItems();
+    const existingRaw = window.localStorage.getItem('admin_inbox_v2');
+    let existing = [];
+    try {
+      existing = existingRaw ? JSON.parse(existingRaw) : [];
+    } catch {
+      existing = [];
+    }
     const next = Array.isArray(existing) ? existing.slice() : [];
-    next.push({ ...item });
-    window.localStorage.setItem(INBOX_KEY, JSON.stringify(next));
-    // Dispatch a custom event for same-tab updates if needed
+    // Normalize PDF fields to start with 'data:application/pdf;base64,' if provided
+    const normalizePdf = (v) =>
+      typeof v === 'string' && v.startsWith('data:application/pdf;base64,') ? v : v || '';
+    const normalized = {
+      ...item,
+      ...(item.codeOfConductPdf ? { codeOfConductPdf: normalizePdf(item.codeOfConductPdf) } : {}),
+      ...(item.ndaPdf ? { ndaPdf: normalizePdf(item.ndaPdf) } : {}),
+      ...(item.offerLetterPdf ? { offerLetterPdf: normalizePdf(item.offerLetterPdf) } : {}),
+    };
+    next.push(normalized);
+    window.localStorage.setItem('admin_inbox_v2', JSON.stringify(next));
+    // Dispatch event for same-tab updates
     window.dispatchEvent(new CustomEvent('admin_inbox_v2:update', { detail: { length: next.length } }));
     return true;
   } catch {
@@ -64,7 +73,7 @@ export function clearInbox() {
   /** Clears the v2 inbox entirely (dev only). */
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(INBOX_KEY);
+    window.localStorage.removeItem('admin_inbox_v2');
     window.dispatchEvent(new CustomEvent('admin_inbox_v2:update', { detail: { length: 0 } }));
   } catch {
     // ignore
@@ -79,7 +88,7 @@ export function subscribe(callback) {
    */
   if (typeof window === 'undefined') return () => {};
   const onStorage = (e) => {
-    if (e.key === INBOX_KEY) {
+    if (e.key === 'admin_inbox_v2') {
       callback(getInboxItems());
     }
   };
@@ -91,5 +100,3 @@ export function subscribe(callback) {
     window.removeEventListener('admin_inbox_v2:update', onCustom);
   };
 }
-
-export const __INBOX_KEY__ = INBOX_KEY;

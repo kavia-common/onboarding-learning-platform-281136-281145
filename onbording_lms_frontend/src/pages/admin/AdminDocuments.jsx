@@ -178,7 +178,7 @@ export default function AdminDocuments() {
                         <td style={{ padding: 8 }}>{d.category}</td>
                         <td style={{ padding: 8, maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.description}</td>
                         <td style={{ padding: 8 }}>
-                          <a href={d.link} target="_blank" rel="noreferrer" style={{ color: ocean.primary }}>{d.link}</a>
+                          <a href={d.link} style={{ color: ocean.primary, textDecoration: 'none' }}>{d.link}</a>
                         </td>
                         <td style={{ padding: 8 }}>
                           <div style={{ display: 'flex', gap: 8 }}>

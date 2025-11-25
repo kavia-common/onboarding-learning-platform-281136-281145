@@ -76,14 +76,14 @@ export default function AdminDocumentView() {
           />
         );
       }
-      // Unknown external -> show open in new tab
+      // Unknown external -> provide a safe direct navigation hint (no target=_blank)
       return (
         <div style={{ padding: 12, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12 }}>
           <p style={{ marginTop: 0, color: '#92400e' }}>
-            This file type might not be embeddable. Try opening it in a new tab.
+            This file type might not be embeddable. You can navigate to the resource directly.
           </p>
-          <a href={src} target="_blank" rel="noreferrer" style={{ color: ocean.primary }}>
-            Open in new tab
+          <a href={src} style={{ color: ocean.primary, textDecoration: 'none', border: '1px solid #c7d2fe', padding: '6px 10px', borderRadius: 8 }}>
+            Go to resource
           </a>
         </div>
       );
@@ -96,7 +96,7 @@ export default function AdminDocumentView() {
           <iframe title="PDF Viewer Fallback" src={src} style={{ width: '100%', height: 600, border: 'none' }} />
           <p>
             Unable to display PDF.{' '}
-            <a href={src} target="_blank" rel="noreferrer" style={{ color: ocean.primary }}>
+            <a href={src} download style={{ color: ocean.primary, textDecoration: 'none', border: '1px solid #c7d2fe', padding: '2px 6px', borderRadius: 6 }}>
               Download
             </a>
           </p>
@@ -155,7 +155,7 @@ export default function AdminDocumentView() {
                 <div><strong>Category:</strong> {doc.category || '—'}</div>
                 <div><strong>Description:</strong> {doc.description || '—'}</div>
                 <div>
-                  <strong>Link:</strong> <a href={doc.link} target="_blank" rel="noreferrer" style={{ color: ocean.primary }}>{doc.link}</a>
+                  <strong>Link:</strong> <a href={doc.link} style={{ color: ocean.primary, textDecoration: 'none' }}>{doc.link}</a>
                 </div>
                 <div><strong>Type:</strong> {ext || 'unknown'}</div>
               </div>

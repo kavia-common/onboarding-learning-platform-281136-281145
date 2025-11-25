@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminGate from '../../components/AdminGate.jsx';
 import { getInboxItems, subscribe } from '../../utils/adminInbox';
 
@@ -101,7 +102,31 @@ function DownloadLink({ dataUrl, filename, disabled }) {
   );
 }
 
-function PdfModal({ open, onClose, src, title, initialFocusRef }) {
+function base64ToUint8Array(b64) {
+  try {
+    const clean = String(b64).replace(/^data:application\/pdf(?:;charset=[^;]+)?;base64,/, '');
+    const bin = atob(clean);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function makeBlobUrlFromPdfDataUrl(dataUrl) {
+  try {
+    const bytes = base64ToUint8Array(dataUrl);
+    if (!bytes) return '';
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
+  } catch {
+    return '';
+  }
+}
+
+function PdfModal({ open, onClose, src, title, initialFocusRef, downloadName }) {
   // Accessible modal with focus trap and escape handling
   const dialogRef = useRef(null);
 
@@ -194,14 +219,91 @@ function PdfModal({ open, onClose, src, title, initialFocusRef }) {
             style={{ width: '100%', height: '100%', border: 'none', background: '#111827' }}
           />
         </div>
-        <footer style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <DownloadLink dataUrl={src} filename={(title || 'document').replace(/\s+/g, '_') + '.pdf'} />
-          <OceanButton variant="subtle" onClick={onClose} ariaLabel="Close" title="Close">
-            Done
-          </OceanButton>
+        <footer style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <DownloadLink dataUrl={src} filename={downloadName || ((title || 'document').replace(/\s+/g, '_') + '.pdf')} />
+            {/* Blob fallback for very large data URLs */}
+            <BlobDownload dataUrl={src} filename={downloadName || ((title || 'document').replace(/\s+/g, '_') + '.pdf')} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* Full-page SPA link to stable preview route */}
+            <OpenInPageButton dataUrl={src} title={title} />
+            <OceanButton variant="subtle" onClick={onClose} ariaLabel="Close" title="Close">
+              Done
+            </OceanButton>
+          </div>
         </footer>
       </div>
     </div>
+  );
+}
+
+function BlobDownload({ dataUrl, filename }) {
+  const valid = isPdfDataUrl(ensurePdfPrefix(dataUrl));
+  if (!valid) return null;
+  let href = '';
+  try {
+    href = makeBlobUrlFromPdfDataUrl(ensurePdfPrefix(dataUrl));
+  } catch {
+    href = '';
+  }
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      download={filename}
+      aria-label={`Download ${filename} (blob)`}
+      title={`Download ${filename}`}
+      style={{ color: ocean.primary, border: '1px solid #c7d2fe', padding: '6px 10px', borderRadius: 8, textDecoration: 'none' }}
+      onClick={() => {
+        // Revoke shortly after click; the browser will start download immediately
+        setTimeout(() => {
+          try { URL.revokeObjectURL(href); } catch {}
+        }, 4000);
+      }}
+    >
+      Download (blob)
+    </a>
+  );
+}
+
+function OpenInPageButton({ dataUrl, title }) {
+  const navigate = useNavigate();
+  const valid = isPdfDataUrl(ensurePdfPrefix(dataUrl));
+  if (!valid) return null;
+
+  // Determine document key by attempting to match known prefixes (best-effort)
+  const guessDocKey = () => {
+    const t = String(title || '').toLowerCase();
+    if (t.includes('code of conduct')) return 'coc';
+    if (t.includes('offer')) return 'offer';
+    if (t.includes('nda')) return 'nda';
+    return 'doc';
+    };
+
+  const onOpen = () => {
+    try {
+      // Find the index of the item in storage to populate :id param
+      const listRaw = window.localStorage.getItem('admin_inbox_v2') || '[]';
+      const list = JSON.parse(listRaw);
+      const idx = Array.isArray(list) ? list.findIndex((it) => {
+        const u = ensurePdfPrefix(dataUrl);
+        return it?.codeOfConductPdf === u || it?.ndaPdf === u || it?.offerLetterPdf === u;
+      }) : -1;
+      const idParam = idx >= 0 ? String(idx) : '0';
+      const docParam = guessDocKey();
+      // SPA navigate — no window.open, no target=_blank
+      navigate(`/admin/inbox/preview/${encodeURIComponent(idParam)}/${encodeURIComponent(docParam)}`, { replace: false });
+    } catch {
+      // As a fallback, still navigate to inbox (safe)
+      navigate('/admin/inbox', { replace: false });
+    }
+  };
+
+  return (
+    <OceanButton variant="subtle" onClick={onOpen} ariaLabel="Open full-page preview" title="Open full-page preview">
+      Open in full page
+    </OceanButton>
   );
 }
 
@@ -244,9 +346,13 @@ export default function AdminInbox() {
   }, [items]);
 
   const openModal = (src, title) => {
-    // do not store long data URLs in React state beyond what's necessary;
-    // here we only hold while modal is open
-    setModalSrc(src);
+    const normalized = ensurePdfPrefix(src);
+    if (!isPdfDataUrl(normalized)) {
+      // Friendly error in place of opening the modal
+      alert('Unable to preview document. The generated PDF appears to be malformed.');
+      return;
+    }
+    setModalSrc(normalized);
     setModalTitle(title || 'Document');
     setModalOpen(true);
   };
@@ -408,6 +514,7 @@ export default function AdminInbox() {
         src={modalSrc}
         title={modalTitle}
         initialFocusRef={closeBtnRef}
+        downloadName={(modalTitle || 'document').replace(/\s+/g, '_') + '.pdf'}
       />
     </AdminGate>
   );

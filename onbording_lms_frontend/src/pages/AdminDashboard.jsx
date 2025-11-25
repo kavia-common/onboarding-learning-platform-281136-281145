@@ -6,13 +6,11 @@ import { useAuth } from '../store/authStore';
  * PUBLIC_INTERFACE
  * AdminDashboard
  * Admin-only dashboard. If not authenticated as admin, redirects to /admin/login.
- * Displays navigation cards and integrated InboxTable widget.
+ * Displays navigation cards including Inbox.
  */
 export default function AdminDashboard() {
   const { user, currentUserIsAdmin, loading } = useAuth();
   const navigate = useNavigate();
-
-
 
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading authentication…</div>;
@@ -59,7 +57,44 @@ export default function AdminDashboard() {
 
       <section style={{ marginTop: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-          {/* Users Card as a semantic button */}
+          {/* Inbox */}
+          <button
+            type="button"
+            onClick={() => navigate('/admin/inbox')}
+            aria-label="Go to Admin Inbox"
+            className="card"
+            style={{
+              textAlign: 'left',
+              background: ocean.surface,
+              border: '1px solid #e5e7eb',
+              borderRadius: 12,
+              padding: 16,
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'box-shadow 150ms ease, transform 150ms ease, border-color 150ms ease',
+              outline: 'none'
+            }}
+          >
+            <h3 style={{ margin: 0, color: ocean.text }}>Inbox</h3>
+            <p style={{ color: '#6b7280', marginTop: 6 }}>View submissions and download PDFs.</p>
+            <span
+              role="img"
+              aria-label="Go to Inbox"
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                background: ocean.primary,
+                color: '#fff',
+                border: '1px solid #1d4ed8',
+                padding: '8px 12px',
+                borderRadius: 10
+              }}
+            >
+              Open Inbox →
+            </span>
+          </button>
+
+          {/* Users */}
           <button
             type="button"
             onClick={() => navigate('/admin/users')}
@@ -102,7 +137,7 @@ export default function AdminDashboard() {
             </span>
           </button>
 
-          {/* Documents Card as a semantic button */}
+          {/* Documents */}
           <button
             type="button"
             onClick={() => navigate('/admin/documents')}
@@ -145,7 +180,7 @@ export default function AdminDashboard() {
             </span>
           </button>
 
-          {/* Settings Card as a semantic button */}
+          {/* Settings */}
           <button
             type="button"
             onClick={() => navigate('/admin/settings')}
@@ -189,8 +224,6 @@ export default function AdminDashboard() {
           </button>
         </div>
       </section>
-
-
 
       <footer style={{ marginTop: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>
         Ocean Professional theme • Primary #2563EB • Secondary #F59E0B

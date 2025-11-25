@@ -4,10 +4,187 @@ import DocumentList from '../components/documents/DocumentList';
 import { loadAckState, saveAckState } from '../store/documentsStore';
 import { getDocumentsStatus } from '../utils/documentsStatus';
 import { postAcknowledgements } from '../utils/api';
+import { appendInboxItem } from '../utils/adminInbox';
+
+// Lightweight, client-only PDF generation using CDN libs (no hard deps).
+// We attempt to render small HTML snippets for each document into a canvas and embed into a PDF via jsPDF.
+// If libraries fail to load, we gracefully fall back to a minimal text-only PDF using jsPDF if available.
+async function ensurePdfLibs() {
+  try {
+    // Use CDN without bundling; CRA will ignore via webpackIgnore comments when supported by bundler.
+    await import(/* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  } catch {
+    // ignore - html2canvas may still be available on window if cached
+  }
+  try {
+    await import(/* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  } catch {
+    // ignore
+  }
+  const html2canvas = typeof window !== 'undefined' ? window.html2canvas : null;
+  const jsPDF = typeof window !== 'undefined' && window.jspdf ? (window.jspdf.jsPDF || window.jspdf?.default?.jsPDF) : null;
+  return { html2canvas, jsPDF };
+}
+
+// Generate a PDF Data URL for provided HTML content.
+// PUBLIC_INTERFACE
+async function renderPdfDataUrlFromHtml(html, fileBaseName = 'document') {
+  /** Renders given HTML string into a PDF and returns a data URL (base64). Returns '' on failure. */
+  const { html2canvas, jsPDF } = await ensurePdfLibs();
+  try {
+    // Create a hidden container to render the HTML for capture
+    const container = document.createElement('div');
+    container.setAttribute('aria-hidden', 'true');
+    container.style.position = 'fixed';
+    container.style.left = '-10000px';
+    container.style.top = '0';
+    container.style.width = '794px'; // approx A4 width at 96dpi
+    container.style.background = '#ffffff';
+    container.style.color = '#111827';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    let dataUrl = '';
+
+    if (html2canvas && jsPDF) {
+      const canvas = await html2canvas(container, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const margin = 24;
+      const maxW = pageWidth - margin * 2;
+      const ratio = canvas.width / canvas.height;
+      const contentH = maxW / ratio;
+
+      if (contentH <= pageHeight - margin * 2) {
+        pdf.addImage(imgData, 'PNG', margin, margin, maxW, contentH, undefined, 'FAST');
+      } else {
+        // paginate
+        let remainingHeight = contentH;
+        const pageCanvasHeight = (pageHeight - margin * 2) * (canvas.height / contentH);
+        const pageCanvas = document.createElement('canvas');
+        const pageCtx = pageCanvas.getContext('2d');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = pageCanvasHeight;
+
+        let sY = 0;
+        while (remainingHeight > 0) {
+          pageCtx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pageCtx.drawImage(canvas, 0, sY, canvas.width, pageCanvasHeight, 0, 0, canvas.width, pageCanvasHeight);
+          const pageImg = pageCanvas.toDataURL('image/png');
+          pdf.addImage(pageImg, 'PNG', margin, margin, maxW, (maxW / ratio), undefined, 'FAST');
+          remainingHeight -= (pageHeight - margin * 2);
+          sY += pageCanvasHeight;
+          if (remainingHeight > 0) pdf.addPage();
+        }
+      }
+
+      dataUrl = pdf.output('datauristring');
+    } else if (jsPDF) {
+      // Fallback: simple text PDF if html2canvas unavailable
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      pdf.setFontSize(12);
+      const margin = 24;
+      const lines = pdf.splitTextToSize(html.replace(/<[^>]+>/g, ''), pdf.internal.pageSize.getWidth() - margin * 2);
+      pdf.text(lines, margin, margin + 12);
+      dataUrl = pdf.output('datauristring');
+    }
+
+    document.body.removeChild(container);
+    return typeof dataUrl === 'string' ? dataUrl : '';
+  } catch {
+    return '';
+  }
+}
+
+// Build minimal HTML snapshots for each document using data available in localStorage.
+// PUBLIC_INTERFACE
+function buildDocHtmlSnapshots() {
+  /**
+   * Returns an object with optional HTML strings for each document:
+   * { codeOfConductHtml?, ndaHtml?, offerHtml? }
+   * These are compact, branded snapshots sufficient for record-keeping and preview.
+   */
+  const now = new Date().toLocaleString();
+
+  // Code of Conduct
+  let codeOfConductHtml = null;
+  try {
+    const raw = window.localStorage.getItem('code_of_conduct_ack_v1');
+    const data = raw ? JSON.parse(raw) : null;
+    if (data) {
+      codeOfConductHtml = `
+        <div style="font-family: Inter, system-ui, Arial; padding: 16px;">
+          <h2 style="margin: 0 0 6px; color: #111827;">Code of Conduct - Acknowledgement</h2>
+          <div style="font-size: 12px; color: #6b7280;">DigitalT3 • Generated: ${now}</div>
+          <hr style="margin: 12px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+          <div style="line-height: 1.6; color: #111827;">
+            <div><strong>Employee Name:</strong> ${data.name || ''}</div>
+            <div style="margin-top: 8px;"><strong>Signature:</strong></div>
+            ${data.signatureFileDataUrl ? `<img src="${data.signatureFileDataUrl}" alt="Signature" style="max-height: 96px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px;" />` : '<div>No signature uploaded</div>'}
+          </div>
+        </div>
+      `;
+    }
+  } catch { /* ignore */ }
+
+  // NDA
+  let ndaHtml = null;
+  try {
+    const raw = window.localStorage.getItem('nda_agreement_form_v1');
+    const data = raw ? JSON.parse(raw) : null;
+    if (data) {
+      ndaHtml = `
+        <div style="font-family: Inter, system-ui, Arial; padding: 16px;">
+          <h2 style="margin: 0 0 6px; color: #111827;">NDA Agreement - Acknowledgement</h2>
+          <div style="font-size: 12px; color: #6b7280;">DigitalT3 • Generated: ${now}</div>
+          <hr style="margin: 12px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+          <div style="line-height: 1.6; color: #111827;">
+            <div><strong>Name:</strong> ${data.consultantName || ''}</div>
+            <div><strong>Title:</strong> ${data.consultantTitle || ''}</div>
+            <div><strong>Date:</strong> ${data.consultantDate || ''}</div>
+            <div style="margin-top: 8px;"><strong>Signature:</strong></div>
+            ${data.sigDataUrl ? `<img src="${data.sigDataUrl}" alt="Signature" style="max-height: 96px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px;" />` : '<div>No signature uploaded</div>'}
+          </div>
+        </div>
+      `;
+    }
+  } catch { /* ignore */ }
+
+  // Offer Letter
+  let offerHtml = null;
+  try {
+    const raw = window.localStorage.getItem('offer_letter_signature_v1');
+    const data = raw ? JSON.parse(raw) : null;
+    if (data) {
+      offerHtml = `
+        <div style="font-family: Inter, system-ui, Arial; padding: 16px;">
+          <h2 style="margin: 0 0 6px; color: #111827;">Offer Letter - Acknowledgement</h2>
+          <div style="font-size: 12px; color: #6b7280;">DigitalT3 • Generated: ${now}</div>
+          <hr style="margin: 12px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+          <div style="line-height: 1.6; color: #111827;">
+            <div style="margin-top: 8px;"><strong>Signature:</strong></div>
+            ${data.sigDataUrl ? `<img src="${data.sigDataUrl}" alt="Signature" style="max-height: 96px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px;" />` : '<div>No signature uploaded</div>'}
+          </div>
+        </div>
+      `;
+    }
+  } catch { /* ignore */ }
+
+  return { codeOfConductHtml, ndaHtml, offerHtml };
+}
 
 // PUBLIC_INTERFACE
 export default function Documents() {
-  /** Documents onboarding page simplified to list and action only (viewer block removed). */
+  /** Documents onboarding page simplified to list and action only, with PDF export to Admin Inbox (v2). */
   const [state] = useState(() => loadAckState());
   const [submitStatus, setSubmitStatus] = useState('idle'); // idle | saving | saved
   const [docStatus, setDocStatus] = useState(() => getDocumentsStatus());
@@ -17,8 +194,10 @@ export default function Documents() {
     const onFocus = () => setDocStatus(getDocumentsStatus());
     // initial sync
     onFocus();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      return () => window.removeEventListener('focus', onFocus);
+    }
   }, []);
 
   const items = useMemo(
@@ -98,7 +277,39 @@ export default function Documents() {
       submittedBy = auth?.user?.email || 'anonymous';
     } catch { /* ignore */ }
 
-    // Admin Inbox feature removed; do not append to localStorage
+    // 1) Generate PDFs (Data URLs) using lightweight client-side approach for each applicable document.
+    // We create small HTML snapshots and render them. If generation fails, fields remain undefined.
+    let codeOfConductPdf = '';
+    let ndaPdf = '';
+    let offerLetterPdf = '';
+    try {
+      const { codeOfConductHtml, ndaHtml, offerHtml } = buildDocHtmlSnapshots();
+      if (codeOfConductHtml) codeOfConductPdf = await renderPdfDataUrlFromHtml(codeOfConductHtml, 'Code_of_Conduct');
+      if (ndaHtml) ndaPdf = await renderPdfDataUrlFromHtml(ndaHtml, 'NDA_Agreement');
+      if (offerHtml) offerLetterPdf = await renderPdfDataUrlFromHtml(offerHtml, 'Offer_Letter');
+    } catch {
+      // ignore generation errors; PDFs are optional
+    }
+
+    // 2) Build inbox item per requested schema, including optional PDF data URLs.
+    const inboxItem = {
+      email: submittedBy || 'anonymous',
+      submittedAt: new Date().toLocaleString(),
+      codeOfConduct: docStatus.codeOfConduct === 'Completed',
+      nda: docStatus.nda === 'Completed',
+      offerLetter: docStatus.offerLetter === 'Completed',
+      // Optional attachments (base64 data URLs)
+      ...(codeOfConductPdf ? { codeOfConductPdf } : {}),
+      ...(ndaPdf ? { ndaPdf } : {}),
+      ...(offerLetterPdf ? { offerLetterPdf } : {}),
+    };
+
+    // 3) Persist to localStorage under admin_inbox_v2 (append)
+    try {
+      appendInboxItem(inboxItem);
+    } catch {
+      // ignore storage failures
+    }
 
     // Keep existing local acknowledgement posting (no-op without API base)
     const payload = {

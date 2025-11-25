@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * InboxRow renders a single row for the Admin Inbox table.
@@ -143,9 +143,108 @@ export function InboxRow({
 /**
  * InboxTable renders a table-like list of inbox items with actions.
  * This keeps the provided click handlers intact, and uses semantic table elements.
+ *
+ * Expected localStorage format (key: 'admin_inbox'):
+ * [
+ *   { email: string, submittedAt: string, codeOfConduct: boolean, nda: boolean, offerLetter: boolean }
+ * ]
+ *
+ * We transform the above structure into internal rows:
+ * { id, subject, from, receivedAt, status }
+ *
+ * Status rule:
+ * - If all three booleans true => 'approved'
+ * - If any false and at least one true => 'pending'
+ * - If an external process flags rejection we keep 'rejected' (not set by this component)
  */
 // PUBLIC_INTERFACE
-export default function InboxTable({ items, onView, onApprove, onReject }) {
+export default function InboxTable({
+  items,
+  onView,
+  onApprove,
+  onReject,
+  storageKey = 'admin_inbox',
+}) {
+  // If parent passes items we prioritize them; otherwise load from localStorage.
+  const [rows, setRows] = useState(Array.isArray(items) ? items : []);
+  const isMountedRef = useRef(false);
+
+  // Safe parse helper with SSR guard
+  const safeGetLocal = useMemo(
+    () =>
+      function safeGetLocal(key, fallback) {
+        if (typeof window === 'undefined') return fallback;
+        try {
+          const raw = window.localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : fallback;
+        } catch {
+          return fallback;
+        }
+      },
+    []
+  );
+
+  // Transform admin_inbox entries into table rows
+  function transformEntriesToRows(entries) {
+    return (entries || []).map((e, idx) => {
+      const subject = 'Onboarding Document Submissions';
+      const from = e?.email || 'unknown';
+      const receivedAt = e?.submittedAt || '';
+      const allDone =
+        Boolean(e?.codeOfConduct) && Boolean(e?.nda) && Boolean(e?.offerLetter);
+      // default 'pending' unless something sets rejected externally
+      const status = allDone ? 'approved' : 'pending';
+      return {
+        id: String(e?.id ?? idx),
+        subject,
+        from,
+        receivedAt,
+        status,
+        _raw: e,
+      };
+    });
+  }
+
+  // Initial load
+  useEffect(() => {
+    if (Array.isArray(items)) {
+      setRows(items);
+      return;
+    }
+    const initial = safeGetLocal(storageKey, []);
+    // Optionally seed empty array if not present
+    if (typeof window !== 'undefined') {
+      try {
+        if (!window.localStorage.getItem(storageKey)) {
+          window.localStorage.setItem(storageKey, JSON.stringify([]));
+        }
+      } catch {
+        // ignore write errors
+      }
+    }
+    setRows(transformEntriesToRows(initial));
+    isMountedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, storageKey, safeGetLocal]);
+
+  // Listen to storage changes to refresh data across tabs
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleStorage = (ev) => {
+      if (ev.key && ev.key !== storageKey) return;
+      const next = safeGetLocal(storageKey, []);
+      setRows(transformEntriesToRows(next));
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [storageKey, safeGetLocal]);
+
+  const hasData = rows && rows.length > 0;
+
   return (
     <div
       style={{
@@ -270,19 +369,35 @@ export default function InboxTable({ items, onView, onApprove, onReject }) {
           </thead>
 
           <tbody>
-            {(items || []).map((it) => (
-              <InboxRow
-                key={it.id}
-                id={it.id}
-                subject={it.subject}
-                from={it.from}
-                receivedAt={it.receivedAt}
-                status={it.status}
-                onView={() => onView?.(it)}
-                onApprove={() => onApprove?.(it)}
-                onReject={() => onReject?.(it)}
-              />
-            ))}
+            {hasData ? (
+              rows.map((it) => (
+                <InboxRow
+                  key={it.id}
+                  id={it.id}
+                  subject={it.subject}
+                  from={it.from}
+                  receivedAt={it.receivedAt}
+                  status={it.status}
+                  onView={() => onView?.(it._raw ?? it)}
+                  onApprove={() => onApprove?.(it._raw ?? it)}
+                  onReject={() => onReject?.(it._raw ?? it)}
+                />
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={5}
+                  style={{
+                    padding: '16px',
+                    textAlign: 'center',
+                    color: '#6B7280',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  No inbox items yet. Submissions will appear here.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

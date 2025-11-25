@@ -136,6 +136,15 @@ const AdminInboxView = () => {
                 borderRadius: 8,
                 padding: '0.5rem 0.8rem',
                 cursor: 'pointer',
+                transition: 'transform 120ms ease, box-shadow 120ms ease',
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
               ← Back

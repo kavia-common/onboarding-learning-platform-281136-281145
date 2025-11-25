@@ -15,16 +15,19 @@ const AdminInbox = () => {
       key: 'code-of-conduct',
       label: 'Provided: Code of Conduct',
       description: 'View the organization code of conduct PDF.',
+      file: '/assets/code-of-conduct.pdf',
     },
     {
       key: 'nda',
       label: 'Provided: NDA',
       description: 'View the Non-Disclosure Agreement PDF.',
+      file: '/assets/nda.pdf',
     },
     {
       key: 'offer-letter',
       label: 'Provided: Offer Letter',
       description: 'View the standard offer letter PDF.',
+      file: '/assets/offer-letter.pdf',
     },
   ];
 
@@ -109,15 +112,34 @@ const AdminInbox = () => {
                   height: '100%',
                 }}
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: '1rem',
-                    color: theme.text,
-                  }}
-                >
-                  {item.label}
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <span
+                    role="status"
+                    aria-label="Provided"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: 999,
+                      fontSize: '0.75rem',
+                      background: '#EFF6FF',
+                      color: theme.primary,
+                      border: '1px solid rgba(37,99,235,0.25)',
+                      fontWeight: 600
+                    }}
+                  >
+                    Provided
+                  </span>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: '1rem',
+                      color: theme.text,
+                    }}
+                  >
+                    {item.label.replace(/^Provided:\s*/i, '')}
+                  </h2>
+                </div>
                 <p
                   style={{
                     margin: '0.5rem 0 1rem',
@@ -127,39 +149,71 @@ const AdminInbox = () => {
                 >
                   {item.description}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/admin/inbox/${item.key}`)}
-                  aria-label={`${item.label} - Open`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    backgroundColor: theme.primary,
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 8,
-                    padding: '0.6rem 0.9rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(37,99,235,0.25)',
-                    transition: 'transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease',
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#1D4ED8';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow =
-                      '0 6px 18px rgba(29,78,216,0.28)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow =
-                      '0 4px 14px rgba(37,99,235,0.25)';
-                  }}
-                >
-                  <span aria-hidden="true">📄</span>
-                  Open
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/admin/inbox/${item.key}`)}
+                    aria-label={`${item.label} - Open in embedded viewer`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      backgroundColor: theme.primary,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '0.6rem 0.9rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(37,99,235,0.25)',
+                      transition: 'transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease',
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = '#1D4ED8';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow =
+                        '0 6px 18px rgba(29,78,216,0.28)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = theme.primary;
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow =
+                        '0 4px 14px rgba(37,99,235,0.25)';
+                    }}
+                  >
+                    <span aria-hidden="true">📄</span>
+                    Open
+                  </button>
+                  <a
+                    href={item.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${item.label} - Open PDF in new tab`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      backgroundColor: '#fff',
+                      color: theme.text,
+                      border: '1px solid rgba(17,24,39,0.12)',
+                      borderRadius: 8,
+                      padding: '0.6rem 0.9rem',
+                      textDecoration: 'none',
+                      transition: 'transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease',
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow =
+                        '0 6px 18px rgba(0,0,0,0.08)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span aria-hidden="true">🔗</span>
+                    New tab
+                  </a>
+                </div>
               </div>
             </li>
           ))}

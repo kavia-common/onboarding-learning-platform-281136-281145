@@ -15,6 +15,10 @@ Seeded admin user
 - Password: Pallavi@123
 - Role: admin
 - Seeded automatically on first load (if not already present). Marked by flag dt3_admin_seeded_v1.
+- Stored format:
+  - Users key lms_users_v1 contains an entry with passwordHash = demoDigest(password)
+  - demoDigest is a simple base64 of `v1$<password>`; this is for demo obfuscation only.
+  - Session is stored under lms_auth with { user, token } and persists across refreshes.
 
 Routes
 - /admin/login: Admin login page

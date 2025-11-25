@@ -12,8 +12,8 @@ import { useAuth } from '../store/authStore';
 export default function AdminLogin() {
   const { login, loading } = useAuth();
   const location = useLocation();
-  const [email, setEmail] = useState('');
-  const [pwd, setPwd] = useState('');
+  const [email, setEmail] = useState('abburi@kavia.com');
+  const [pwd, setPwd] = useState('Pallavi@123');
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
 
@@ -29,6 +29,7 @@ export default function AdminLogin() {
     try {
       const result = await login(email, pwd);
       if (result === true) {
+        // Redirect using replace to ensure a clean history entry
         window.location.replace(from);
         return;
       }

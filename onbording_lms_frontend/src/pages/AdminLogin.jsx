@@ -1,39 +1,52 @@
 import React, { useState } from 'react';
-import { Navigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/authStore';
 
 /**
  * PUBLIC_INTERFACE
  * AdminLogin
  * Simple admin login form that authenticates against localStorage users.
- * On success, redirects to /admin (or the intended location).
+ * On success, navigates to /admin (or the intended location) using react-router v6 navigation.
  * Demo-only: credentials are seeded locally; no external services are used.
  */
 export default function AdminLogin() {
   const { login, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState('abburi@kavia.com');
   const [pwd, setPwd] = useState('Pallavi@123');
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  // Keep page visible; guard handles redirect
-
+  // Respect intended redirect path if present
   const from = location.state?.from?.pathname || '/admin';
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    if (loading) return; // prevent submit before seed/restore completed
+    e.preventDefault(); // ensure no full page reload
+    if (loading || submitting) {
+      console.warn('[AdminLogin] Prevented submit while loading/submitting');
+      return; // prevent submit before seed/restore completed
+    }
     setSubmitting(true);
     setErrorText('');
     try {
       const result = await login(email, pwd);
+      console.debug('[AdminLogin] login result:', result);
       if (result === true) {
-        // Redirect using replace to ensure a clean history entry
-        window.location.replace(from);
+        // Navigate via SPA router to keep app state intact
+        navigate(from, { replace: true });
         return;
       }
-      setErrorText('Invalid email or password.');
+      // Handle structured error or generic failure
+      const message =
+        (result && result.ok === false && result.message) ? result.message : 'Invalid email or password.';
+      console.error('[AdminLogin] Login failed:', message);
+      setErrorText(message);
+    } catch (err) {
+      const msg = (err && err.message) || 'Unexpected error during login.';
+      console.error('[AdminLogin] Exception:', err);
+      setErrorText(msg);
     } finally {
       setSubmitting(false);
     }

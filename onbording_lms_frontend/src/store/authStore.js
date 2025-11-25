@@ -204,10 +204,12 @@ export function AuthProvider({ children }) {
 
       const role = found.role || 'user';
       const session = { user: { id: found.id, email: found.email, name: found.name, role }, token: `local-${found.id}` };
+      console.debug('[authStore.login] Authenticated user:', session.user);
       setUser(session.user);
       setToken(session.token);
       recomputeAdmin(session.user);
       persist(session);
+      console.debug('[authStore.login] Session persisted to localStorage');
       return true;
     },
     [persist, recomputeAdmin]

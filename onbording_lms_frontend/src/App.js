@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import Documents from './routes/Documents';
 import { useAuth } from './store/authStore';
@@ -37,6 +37,7 @@ function Login() {
   const { login } = useAuth();
   const { push } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const from = location.state?.from?.pathname || '/documents';
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
@@ -106,6 +107,7 @@ function Login() {
 function Register() {
   const { register } = useAuth();
   const { push } = useToast();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -138,9 +140,10 @@ function Register() {
     setErrorText('');
     try {
       const result = await register(email.trim(), pwd.trim());
+      console.debug('[Register] result:', result);
       if (result === true) {
         push({ type: 'success', message: 'Registration successful' });
-        window.location.replace('/documents');
+        navigate('/documents', { replace: true });
       } else if (result && result.errorCode === 409) {
         const msg = 'Email already registered. Try logging in.';
         setErrorText(msg);
@@ -153,6 +156,11 @@ function Register() {
         setErrorText(msg);
         push({ type: 'error', message: msg });
       }
+    } catch (err) {
+      console.error('[Register] Exception:', err);
+      const msg = (err && err.message) || 'Unexpected error during registration.';
+      setErrorText(msg);
+      push({ type: 'error', message: msg });
     } finally {
       setSubmitting(false);
     }
@@ -200,16 +208,26 @@ function Register() {
 
 function Logout() {
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   // Always call hooks, then handle side-effects/redirects
   useEffect(() => {
     if (PREVIEW_ONLY) {
-      window.location.replace('/documents');
+      console.debug('[Logout] Preview-only mode. Navigating to /documents');
+      navigate('/documents', { replace: true });
       return;
     }
-    logout();
-    window.location.replace('/');
-  }, [logout]);
+    (async () => {
+      try {
+        await logout();
+        console.debug('[Logout] Completed. Navigating to /');
+        navigate('/', { replace: true });
+      } catch (err) {
+        console.error('[Logout] Exception during logout:', err);
+        navigate('/', { replace: true });
+      }
+    })();
+  }, [logout, navigate]);
 
   return <main style={{ padding: 20 }} aria-live="polite">Logging out…</main>;
 }

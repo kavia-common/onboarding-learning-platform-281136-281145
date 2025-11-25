@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 export function InboxRow({
   id,
   subject,
-  from,
+  fromEmail,
   receivedAt,
   status,
   codeOfConduct,
@@ -52,7 +52,7 @@ export function InboxRow({
       <td style={{ padding: '12px 16px', fontWeight: 500, color: '#111827' }}>
         {subject}
       </td>
-      <td style={{ padding: '12px 16px', color: '#374151' }}>{from}</td>
+      <td style={{ padding: '12px 16px', color: '#374151' }}>{fromEmail}</td>
       <td style={{ padding: '12px 16px', color: '#4B5563' }}>{receivedAt}</td>
       <td style={{ padding: '12px 16px' }}>
         <span
@@ -83,7 +83,7 @@ export function InboxRow({
         <button
           type="button"
           onClick={() => onToggleDoc?.(id, 'codeOfConduct')}
-          aria-label={`Toggle Code of Conduct provided for ${from}`}
+          aria-label={`Toggle Code of Conduct provided for ${fromEmail}`}
           style={toggleBtnStyle(Boolean(codeOfConduct))}
         >
           {labelFor(Boolean(codeOfConduct))}
@@ -92,7 +92,7 @@ export function InboxRow({
         <button
           type="button"
           onClick={() => onToggleDoc?.(id, 'nda')}
-          aria-label={`Toggle NDA provided for ${from}`}
+          aria-label={`Toggle NDA provided for ${fromEmail}`}
           style={toggleBtnStyle(Boolean(nda))}
         >
           {labelFor(Boolean(nda))}
@@ -101,7 +101,7 @@ export function InboxRow({
         <button
           type="button"
           onClick={() => onToggleDoc?.(id, 'offerLetter')}
-          aria-label={`Toggle Offer Letter provided for ${from}`}
+          aria-label={`Toggle Offer Letter provided for ${fromEmail}`}
           style={toggleBtnStyle(Boolean(offerLetter))}
         >
           {labelFor(Boolean(offerLetter))}
@@ -234,7 +234,7 @@ export default function InboxTable({
   const transformEntriesToRows = useCallback((entries) => {
     return (entries || []).map((e, idx) => {
       const subject = 'Onboarding Document Submissions';
-      const from = e?.email || 'unknown';
+      const from = e?.email || e?.from || 'unknown';
       const receivedAt = e?.submittedAt || '';
       const allDone =
         Boolean(e?.codeOfConduct) && Boolean(e?.nda) && Boolean(e?.offerLetter);
@@ -242,7 +242,7 @@ export default function InboxTable({
       return {
         id: String(e?.id ?? idx),
         subject,
-        from,
+        fromEmail: from,
         receivedAt,
         status,
         codeOfConduct: Boolean(e?.codeOfConduct),
@@ -454,7 +454,7 @@ export default function InboxTable({
                   key={it.id}
                   id={it.id}
                   subject={it.subject}
-                  from={it.from}
+                  fromEmail={it.fromEmail ?? it.from}
                   receivedAt={it.receivedAt}
                   status={it.status}
                   codeOfConduct={it.codeOfConduct}

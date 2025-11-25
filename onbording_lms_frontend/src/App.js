@@ -14,7 +14,7 @@ import OfferLetter from './pages/OfferLetter.jsx';
 import Navbar from './components/layout/Navbar.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 
-import CourseDetail from './pages/CourseDetail.jsx';
+
 import Profile from './pages/Profile.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
@@ -543,7 +543,7 @@ function App() {
                     />
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
 
-                    <Route path="/courses/:courseId" element={<CourseDetail />} />
+
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />
                     <Route path="/register" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Register />} />

@@ -44,7 +44,7 @@ export default function Navbar() {
           </Link>
           <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
             <NavLink to="/" style={linkStyle} end>Dashboard</NavLink>
-            <NavLink to="/courses" style={linkStyle}>Courses</NavLink>
+
             <NavLink to="/documents" style={linkStyle}>Documents</NavLink>
             <NavLink to="/profile" style={linkStyle}>Profile</NavLink>
             {isAdmin && <NavLink to="/admin" style={linkStyle}>Admin</NavLink>}

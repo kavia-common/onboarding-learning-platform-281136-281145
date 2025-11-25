@@ -15,7 +15,7 @@ export default function Dashboard() {
           <p>Start with your onboarding tasks and documents.</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link className="btn" to="/documents">Documents</Link>
-            <Link className="btn" to="/courses">Courses</Link>
+
             <Link className="btn" to="/profile">Profile</Link>
           </div>
         </section>

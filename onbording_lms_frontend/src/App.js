@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import Documents from './routes/Documents';
 import { useAuth } from './store/authStore';
@@ -19,21 +19,7 @@ import Profile from './pages/Profile.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
 
-function Sidebar() {
-  if (PREVIEW_ONLY) return null;
-  return (
-    <aside
-      aria-label="Sidebar"
-      className="card"
-      style={{ padding: 16, position: 'sticky', top: 64, alignSelf: 'start' }}
-    >
-      <h3 style={{ marginTop: 0 }}>Quick Links</h3>
-      <ul style={{ lineHeight: 1.8, paddingLeft: 18, margin: 0 }}>
-        {/* No direct document links in sidebar */}
-      </ul>
-    </aside>
-  );
-}
+
 
 function Footer() {
   return (

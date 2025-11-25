@@ -7,10 +7,10 @@ This app supports Supabase Auth (email/password) with a graceful local fallback 
 Add these to your environment (e.g., .env):
 
 - REACT_APP_SUPABASE_URL=<your-supabase-url>
-- REACT_APP_SUPABASE_ANON_KEY=<your-anon-key>
+- REACT_APP_SUPABASE_KEY=<your-anon-key>  (alias REACT_APP_SUPABASE_ANON_KEY also supported for backward-compat)
 - REACT_APP_FRONTEND_URL=<your-site-url>  (used for emailRedirectTo)
 
-If REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_ANON_KEY are missing, the app automatically falls back to local-only auth (localStorage).
+If REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_KEY are missing, the app automatically falls back to local-only auth (localStorage).
 
 Do not commit a real .env. Provide them via deployment or local environment.
 

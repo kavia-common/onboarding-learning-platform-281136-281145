@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentCompleted } from "../utils/documentsStatus";
 import { useToast } from "../components/ui/Toast";
+import { upsertInboxPdfForUser } from "../utils/inboxUpdate";
 
 /**
  * PUBLIC_INTERFACE
@@ -223,8 +224,22 @@ const OfferLetter = () => {
         }
       }
 
+      // Also produce data URL for Admin Inbox
+      let dataUrl = "";
+      try {
+        dataUrl = pdf.output("datauristring");
+      } catch {}
+
       pdf.save("offer_letter.pdf");
-      try { push({ type: "success", message: "Offer Letter exported as PDF." }); } catch {}
+      try {
+        if (dataUrl && typeof dataUrl === "string") {
+          const ok = upsertInboxPdfForUser({ offerLetterPdf: dataUrl });
+          if (ok) push({ type: "success", message: "Offer Letter exported • Added to Admin Inbox" });
+          else push({ type: "success", message: "Offer Letter exported as PDF." });
+        } else {
+          push({ type: "success", message: "Offer Letter exported as PDF." });
+        }
+      } catch {}
       node.classList.remove("print-ready");
     } catch (e) {
       setExportError("Could not generate PDF. Using browser print as fallback.");

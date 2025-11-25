@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentCompleted } from "../utils/documentsStatus";
 import { useToast } from "../components/ui/Toast";
+import { upsertInboxPdfForUser } from "../utils/inboxUpdate";
 
 /**
  * PUBLIC_INTERFACE
@@ -269,9 +270,24 @@ const NDAAgreement = ({
       }
 
       const safeName = String(consultantName || "consultant").trim().replace(/\s+/g, "_");
-      // Use jsPDF.save to trigger download with a sensible filename
+
+      // Also produce a data URL to update Admin Inbox
+      let dataUrl = "";
+      try {
+        dataUrl = pdf.output("datauristring");
+      } catch {}
+
+      // Trigger download
       pdf.save(`nda_${safeName || "consultant"}.pdf`);
-      try { push({ type: "success", message: "NDA exported as PDF." }); } catch {}
+      try {
+        if (dataUrl && typeof dataUrl === "string") {
+          const ok = upsertInboxPdfForUser({ ndaPdf: dataUrl });
+          if (ok) push({ type: "success", message: "NDA exported • Added to Admin Inbox" });
+          else push({ type: "success", message: "NDA exported as PDF." });
+        } else {
+          push({ type: "success", message: "NDA exported as PDF." });
+        }
+      } catch {}
       node.classList.remove("print-ready");
     } catch (e) {
       setExportError("Could not generate PDF. Using browser print as fallback.");

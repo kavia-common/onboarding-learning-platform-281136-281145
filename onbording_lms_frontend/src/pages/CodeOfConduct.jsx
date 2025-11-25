@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setDocumentCompleted } from "../utils/documentsStatus";
 import { useToast } from "../components/ui/Toast";
+import { upsertInboxPdfForUser } from "../utils/inboxUpdate";
 
 /**
  * PUBLIC_INTERFACE
@@ -260,8 +261,24 @@ const CodeOfConduct = () => {
       }
 
       const safeName = String(name || "employee").trim().replace(/\s+/g, "_");
+
+      // Also export as data URL and upsert into Admin Inbox for immediate Admin 'View'
+      let dataUrl = "";
+      try {
+        // Prefer datauristring for base64
+        dataUrl = pdf.output("datauristring");
+      } catch {}
+      // Trigger download for user
       pdf.save(`code_of_conduct_${safeName}.pdf`);
-      try { push({ type: "success", message: "Code of Conduct exported as PDF." }); } catch {}
+      try {
+        if (dataUrl && typeof dataUrl === "string") {
+          const ok = upsertInboxPdfForUser({ codeOfConductPdf: dataUrl });
+          if (ok) push({ type: "success", message: "Code of Conduct exported • Added to Admin Inbox" });
+          else push({ type: "success", message: "Code of Conduct exported as PDF." });
+        } else {
+          push({ type: "success", message: "Code of Conduct exported as PDF." });
+        }
+      } catch {}
 
       node.classList.remove("print-ready");
     } catch (e) {

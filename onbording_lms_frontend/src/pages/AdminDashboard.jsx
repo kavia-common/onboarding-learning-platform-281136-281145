@@ -56,25 +56,70 @@ export default function AdminDashboard() {
 
       <section style={{ marginTop: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-          <Link to="/admin/users" style={{ textDecoration: 'none' }}>
+          <Link to="/admin/users" style={{ textDecoration: 'none' }} aria-label="Go to Admin Users">
             <div style={{ background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
               <h3 style={{ margin: 0, color: ocean.text }}>Users</h3>
               <p style={{ color: '#6b7280', marginTop: 6 }}>Create, edit, and remove application users.</p>
-              <span style={{ color: ocean.primary }}>Go to Users →</span>
+              <button
+                type="button"
+                className="btn"
+                aria-label="Open Users management"
+                style={{
+                  marginTop: 8,
+                  background: ocean.primary,
+                  color: '#fff',
+                  border: '1px solid #1d4ed8',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                Go to Users →
+              </button>
             </div>
           </Link>
-          <Link to="/admin/documents" style={{ textDecoration: 'none' }}>
+          <Link to="/admin/documents" style={{ textDecoration: 'none' }} aria-label="Go to Admin Documents">
             <div style={{ background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
               <h3 style={{ margin: 0, color: ocean.text }}>Documents</h3>
               <p style={{ color: '#6b7280', marginTop: 6 }}>Manage document metadata and links.</p>
-              <span style={{ color: ocean.primary }}>Go to Documents →</span>
+              <button
+                type="button"
+                className="btn"
+                aria-label="Open Documents management"
+                style={{
+                  marginTop: 8,
+                  background: ocean.primary,
+                  color: '#fff',
+                  border: '1px solid #1d4ed8',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                Go to Documents →
+              </button>
             </div>
           </Link>
-          <Link to="/admin/settings" style={{ textDecoration: 'none' }}>
+          <Link to="/admin/settings" style={{ textDecoration: 'none' }} aria-label="Go to Admin Settings">
             <div style={{ background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
               <h3 style={{ margin: 0, color: ocean.text }}>Settings</h3>
               <p style={{ color: '#6b7280', marginTop: 6 }}>Configure site title, theme, and feature flags.</p>
-              <span style={{ color: ocean.primary }}>Go to Settings →</span>
+              <button
+                type="button"
+                className="btn"
+                aria-label="Open Settings"
+                style={{
+                  marginTop: 8,
+                  background: ocean.secondary,
+                  color: '#111827',
+                  border: '1px solid #d97706',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  cursor: 'pointer'
+                }}
+              >
+                Go to Settings →
+              </button>
             </div>
           </Link>
         </div>

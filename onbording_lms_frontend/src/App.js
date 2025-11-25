@@ -22,6 +22,8 @@ import AdminUsers from './pages/admin/AdminUsers.jsx';
 import AdminDocuments from './pages/admin/AdminDocuments.jsx';
 import AdminSettings from './pages/admin/AdminSettings.jsx';
 import AdminDocumentView from './pages/admin/AdminDocumentView.jsx';
+import AdminInbox from './pages/admin/AdminInbox.jsx';
+import AdminInboxView from './pages/admin/AdminInboxView.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
 
@@ -431,6 +433,22 @@ function App() {
                       element={
                         <AdminRouteGuard>
                           <AdminDocumentView />
+                        </AdminRouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/inbox"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminInbox />
+                        </AdminRouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/inbox/:docType"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminInboxView />
                         </AdminRouteGuard>
                       }
                     />

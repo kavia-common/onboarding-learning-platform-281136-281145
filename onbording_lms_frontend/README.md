@@ -4,7 +4,7 @@ Modern React app with router-driven layout, onboarding wizard, documents acknowl
 
 ## Features
 
-- Router-driven pages: `/`, `/onboarding`, `/documents`, `/catalog`, `/course/:id`, `/dashboard`, `/login`, `/register`, `/logout`
+- Router-driven pages: `/`, `/onboarding`, `/documents`, `/courses`, `/courses/:courseId`, `/dashboard`, `/login`, `/register`, `/logout`
 - Documents Onboarding: View and acknowledge Code of Conduct, NDA, and Internship Letter with electronic signature
 - Onboarding Wizard: Integrates the Documents step with welcome and next steps
 - Auth Store: Frontend-only localStorage users and sessions by default (no backend required)

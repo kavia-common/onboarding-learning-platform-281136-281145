@@ -333,7 +333,7 @@ function AdminPage() {
       <section className="card" aria-label="Role Management" style={{ padding: 16, display: 'grid', gap: 12 }}>
         <h1 style={{ margin: 0 }}>Admin</h1>
         <div style={{ color: 'var(--text-secondary)' }}>
-          Manage your role via Supabase user metadata. In frontend-only mode, this updates the local session.
+          Manage your role for this session. This app runs fully in the browser and stores roles locally for demo purposes.
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div>

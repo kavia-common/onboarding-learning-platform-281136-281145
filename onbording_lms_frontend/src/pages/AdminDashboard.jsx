@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/authStore';
-import InboxTable from '../components/admin/InboxTable';
 
 /**
  * PUBLIC_INTERFACE
@@ -13,49 +12,7 @@ export default function AdminDashboard() {
   const { user, currentUserIsAdmin, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Demo items for the inbox; replace with API data in the future
-  const inboxItems = useMemo(
-    () => [
-      {
-        id: '1',
-        subject: 'NDA Signature Request',
-        fromEmail: 'jane.doe@example.com',
-        receivedAt: '2025-11-24 09:12',
-        status: 'pending',
-      },
-      {
-        id: '2',
-        subject: 'Course Access Approval',
-        fromEmail: 'john.smith@example.com',
-        receivedAt: '2025-11-24 10:03',
-        status: 'approved',
-      },
-      {
-        id: '3',
-        subject: 'Document Update Review',
-        fromEmail: 'ops@example.com',
-        receivedAt: '2025-11-24 12:47',
-        status: 'rejected',
-      },
-    ],
-    []
-  );
 
-  // Keep handlers simple; integrate with real flows later
-  const handleView = useCallback((item) => {
-    // eslint-disable-next-line no-alert
-    alert(`View item: ${item.subject}`);
-  }, []);
-
-  const handleApprove = useCallback((item) => {
-    // eslint-disable-next-line no-alert
-    alert(`Approve item: ${item.subject}`);
-  }, []);
-
-  const handleReject = useCallback((item) => {
-    // eslint-disable-next-line no-alert
-    alert(`Reject item: ${item.subject}`);
-  }, []);
 
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading authentication…</div>;
@@ -233,10 +190,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      {/* Integrated Inbox Table replaces previous local inbox table */}
-      <section className="card" style={{ padding: 16, marginTop: 16, background: ocean.surface, border: '1px solid #e5e7eb', borderRadius: 12 }}>
-        <InboxTable items={inboxItems} onView={handleView} onApprove={handleApprove} onReject={handleReject} />
-      </section>
+
 
       <footer style={{ marginTop: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>
         Ocean Professional theme • Primary #2563EB • Secondary #F59E0B

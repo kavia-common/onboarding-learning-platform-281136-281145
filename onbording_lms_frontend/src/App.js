@@ -13,7 +13,7 @@ import NDAAgreement from './pages/NDAAgreement.jsx';
 import OfferLetter from './pages/OfferLetter.jsx';
 import Navbar from './components/layout/Navbar.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import Courses from './pages/Courses.jsx';
+
 import CourseDetail from './pages/CourseDetail.jsx';
 import Profile from './pages/Profile.jsx';
 
@@ -542,7 +542,7 @@ function App() {
                       }
                     />
                     <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
-                    <Route path="/courses" element={<Courses />} />
+
                     <Route path="/courses/:courseId" element={<CourseDetail />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />

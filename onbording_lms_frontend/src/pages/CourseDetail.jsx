@@ -19,7 +19,7 @@ export default function CourseDetail() {
           <h1 style={{ marginTop: 0 }}>Course not found</h1>
           <div style={{ color: 'var(--error)' }}>We couldn't find the requested course.</div>
           <div style={{ marginTop: 12 }}>
-            <Link className="btn" to="/courses">Back to Courses</Link>
+            <Link className="btn" to="/">Go to Dashboard</Link>
           </div>
         </div>
       </main>
@@ -74,7 +74,7 @@ export default function CourseDetail() {
         </table>
       </section>
       <div style={{ marginTop: 12 }}>
-        <Link className="btn" to="/courses">Back to Courses</Link>
+        <Link className="btn" to="/">Go to Dashboard</Link>
       </div>
       <footer style={{ marginTop: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>
         Ocean Professional theme • Primary #2563EB • Secondary #F59E0B

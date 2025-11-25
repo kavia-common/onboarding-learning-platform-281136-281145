@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { listDocuments, upsertDocument, deleteDocument, getDocumentById } from '../../services/adminDocuments';
 import AdminGate from '../../components/AdminGate.jsx';
 
@@ -70,6 +71,9 @@ export default function AdminDocuments() {
     }
   };
 
+  const navigate = useNavigate();
+  const onView = (id) => navigate(`/admin/documents/${id}`);
+
   return (
     <AdminGate>
       <div style={{ padding: 24, background: ocean.background, minHeight: '100%' }}>
@@ -136,6 +140,10 @@ export default function AdminDocuments() {
           </div>
           <div style={{ flex: '2 1 600px', background: ocean.surface, borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
             <h2 style={{ marginTop: 0, color: ocean.text }}>Documents</h2>
+            <p style={{ color: '#6b7280', marginTop: 4 }}>
+              Tip: You can link to uploaded assets under <code>/assets/</code>. For example:
+              <code style={{ marginLeft: 6, background: '#f3f4f6', padding: '2px 6px', borderRadius: 6 }}>/assets/20251125_064008_image.png</code>
+            </p>
             {docs.length === 0 ? (
               <EmptyState
                 title="No documents yet"
@@ -158,7 +166,15 @@ export default function AdminDocuments() {
                   <tbody>
                     {docs.map((d) => (
                       <tr key={d.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: 8 }}>{d.title}</td>
+                        <td
+                          style={{ padding: 8, cursor: 'pointer', color: ocean.primary, textDecoration: 'underline' }}
+                          onClick={() => onView(d.id)}
+                          role="button"
+                          aria-label={`View ${d.title}`}
+                          title="View document"
+                        >
+                          {d.title}
+                        </td>
                         <td style={{ padding: 8 }}>{d.category}</td>
                         <td style={{ padding: 8, maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.description}</td>
                         <td style={{ padding: 8 }}>
@@ -166,6 +182,9 @@ export default function AdminDocuments() {
                         </td>
                         <td style={{ padding: 8 }}>
                           <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => onView(d.id)} aria-label={`View ${d.title}`} style={{ background: ocean.primary, color: '#fff', border: '1px solid #1d4ed8', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                              View
+                            </button>
                             <button onClick={() => onEdit(d.id)} aria-label={`Edit ${d.title}`} style={{ background: 'transparent', color: ocean.primary, border: '1px solid #c7d2fe', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>
                               Edit
                             </button>

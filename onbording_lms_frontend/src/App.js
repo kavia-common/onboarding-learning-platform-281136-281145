@@ -21,6 +21,7 @@ import Profile from './pages/Profile.jsx';
 import AdminUsers from './pages/admin/AdminUsers.jsx';
 import AdminDocuments from './pages/admin/AdminDocuments.jsx';
 import AdminSettings from './pages/admin/AdminSettings.jsx';
+import AdminDocumentView from './pages/admin/AdminDocumentView.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
 
@@ -422,6 +423,14 @@ function App() {
                       element={
                         <AdminRouteGuard>
                           <AdminDocuments />
+                        </AdminRouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/documents/:id"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminDocumentView />
                         </AdminRouteGuard>
                       }
                     />

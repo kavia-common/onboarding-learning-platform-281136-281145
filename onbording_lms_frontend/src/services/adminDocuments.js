@@ -13,6 +13,7 @@ function seedIfEmpty() {
         title: 'Code of Conduct',
         category: 'HR',
         description: 'Company policies and conduct expectations.',
+        // Example: could be a public asset or external URL. Replace with your own file path.
         link: '/documents/code_of_conduct',
       },
     ];
@@ -46,11 +47,13 @@ export function getDocumentById(id) {
   return readAll().find((d) => d.id === id) || null;
 }
 
-// PUBLIC_INTERFACE
+ // PUBLIC_INTERFACE
 export function upsertDocument(doc) {
   /**
    * Create or update document metadata.
    * Minimal validation - requires title and link.
+   * Ensures a stable id (d-<timestamp>) when creating.
+   * The 'link' field should be a URL (http/https) or a local/public path (e.g., /assets/file.pdf).
    */
   const items = readAll();
   if (!doc.title || !doc.link) {

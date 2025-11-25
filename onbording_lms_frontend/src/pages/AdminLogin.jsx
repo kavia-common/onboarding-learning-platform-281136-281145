@@ -10,19 +10,20 @@ import { useAuth } from '../store/authStore';
  * Demo-only: credentials are seeded locally; no external services are used.
  */
 export default function AdminLogin() {
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  // if already admin, redirect from here will be handled by /admin route guard, so we keep page visible
+  // Keep page visible; guard handles redirect
 
   const from = location.state?.from?.pathname || '/admin';
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loading) return; // prevent submit before seed/restore completed
     setSubmitting(true);
     setErrorText('');
     try {
@@ -55,6 +56,12 @@ export default function AdminLogin() {
           Use your admin account to access the dashboard.
         </p>
 
+        {loading ? (
+          <div role="status" aria-live="polite" style={{ marginBottom: 12 }}>
+            Initializing authentication…
+          </div>
+        ) : null}
+
         <form onSubmit={handleLogin} noValidate style={{ display: 'grid', gap: 10 }}>
           <label style={{ display: 'grid', gap: 6 }}>
             <span>Email</span>
@@ -65,6 +72,7 @@ export default function AdminLogin() {
               placeholder="Enter your email"
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-color)' }}
               aria-required="true"
+              disabled={loading || submitting}
             />
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
@@ -76,6 +84,7 @@ export default function AdminLogin() {
               placeholder="Enter your password"
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-color)' }}
               aria-required="true"
+              disabled={loading || submitting}
             />
           </label>
           {errorText ? (
@@ -83,13 +92,13 @@ export default function AdminLogin() {
               {errorText}
             </div>
           ) : null}
-          <button className="btn" type="submit" disabled={submitting} aria-busy={submitting}>
+          <button className="btn" type="submit" disabled={loading || submitting} aria-busy={submitting || loading}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
         <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>
-          Tip: This is a demo-only local login. No external services are used.
+          Tip: This is a demo-only local login. Seeded admin: abburi@kavia.com / Pallavi@123. No external services are used.
         </div>
 
         <div style={{ marginTop: 12 }}>

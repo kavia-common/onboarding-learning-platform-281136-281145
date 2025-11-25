@@ -265,8 +265,16 @@ function OnboardingWizard() {
 
 function AdminRouteGuard({ children }) {
   // PUBLIC_INTERFACE
-  /** Guard that allows only admin users, else redirects to /admin/login */
-  const { user, currentUserIsAdmin } = useAuth();
+  /** Guard that allows only admin users, else redirects to /admin/login
+   * Waits for auth loading to finish to avoid redirecting during seed/restore.
+   */
+  const { user, currentUserIsAdmin, loading } = useAuth();
+
+  // While auth is initializing (seeding admin and restoring session), don't redirect
+  if (loading) {
+    return <div style={{ padding: '1rem' }}>Loading authentication…</div>;
+  }
+
   if (!user || (user.role !== 'admin' && currentUserIsAdmin !== true)) {
     return <Navigate to="/admin/login" replace />;
   }

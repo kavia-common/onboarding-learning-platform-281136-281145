@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * InboxRow renders a single row for the Admin Inbox table.
@@ -11,6 +11,10 @@ export function InboxRow({
   from,
   receivedAt,
   status,
+  codeOfConduct,
+  nda,
+  offerLetter,
+  onToggleDoc, // (id, field) => void
   onView,
   onApprove,
   onReject,
@@ -22,6 +26,20 @@ export function InboxRow({
     rejected: { bg: '#EF44441A', color: '#EF4444', label: 'Rejected' }, // error
   };
   const s = statusStyles[status] || statusStyles.pending;
+
+  // Simple style for toggle buttons
+  const toggleBtnStyle = (active) => ({
+    padding: '8px 12px',
+    background: active ? '#10B981' : '#ffffff',
+    color: active ? '#ffffff' : '#111827',
+    border: `1px solid ${active ? '#059669' : '#D1D5DB'}`,
+    borderRadius: 8,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 150ms ease',
+  });
+
+  const labelFor = (active) => (active ? 'Provided' : 'Mark Provided');
 
   return (
     <tr
@@ -59,8 +77,36 @@ export function InboxRow({
           gap: 8,
           alignItems: 'center',
           justifyContent: 'flex-end',
+          flexWrap: 'wrap',
         }}
       >
+        <button
+          type="button"
+          onClick={() => onToggleDoc?.(id, 'codeOfConduct')}
+          aria-label={`Toggle Code of Conduct provided for ${from}`}
+          style={toggleBtnStyle(Boolean(codeOfConduct))}
+        >
+          {labelFor(Boolean(codeOfConduct))}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onToggleDoc?.(id, 'nda')}
+          aria-label={`Toggle NDA provided for ${from}`}
+          style={toggleBtnStyle(Boolean(nda))}
+        >
+          {labelFor(Boolean(nda))}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onToggleDoc?.(id, 'offerLetter')}
+          aria-label={`Toggle Offer Letter provided for ${from}`}
+          style={toggleBtnStyle(Boolean(offerLetter))}
+        >
+          {labelFor(Boolean(offerLetter))}
+        </button>
+
         <button
           type="button"
           onClick={onView}
@@ -146,16 +192,15 @@ export function InboxRow({
  *
  * Expected localStorage format (key: 'admin_inbox'):
  * [
- *   { email: string, submittedAt: string, codeOfConduct: boolean, nda: boolean, offerLetter: boolean }
+ *   { id?: string|number, email: string, submittedAt: string, codeOfConduct: boolean, nda: boolean, offerLetter: boolean }
  * ]
  *
  * We transform the above structure into internal rows:
- * { id, subject, from, receivedAt, status }
+ * { id, subject, from, receivedAt, status, codeOfConduct, nda, offerLetter }
  *
  * Status rule:
  * - If all three booleans true => 'approved'
- * - If any false and at least one true => 'pending'
- * - If an external process flags rejection we keep 'rejected' (not set by this component)
+ * - Otherwise => 'pending'
  */
 // PUBLIC_INTERFACE
 export default function InboxTable({
@@ -167,7 +212,6 @@ export default function InboxTable({
 }) {
   // If parent passes items we prioritize them; otherwise load from localStorage.
   const [rows, setRows] = useState(Array.isArray(items) ? items : []);
-  const isMountedRef = useRef(false);
 
   // Safe parse helper with SSR guard
   const safeGetLocal = useMemo(
@@ -187,14 +231,13 @@ export default function InboxTable({
   );
 
   // Transform admin_inbox entries into table rows
-  function transformEntriesToRows(entries) {
+  const transformEntriesToRows = useCallback((entries) => {
     return (entries || []).map((e, idx) => {
       const subject = 'Onboarding Document Submissions';
       const from = e?.email || 'unknown';
       const receivedAt = e?.submittedAt || '';
       const allDone =
         Boolean(e?.codeOfConduct) && Boolean(e?.nda) && Boolean(e?.offerLetter);
-      // default 'pending' unless something sets rejected externally
       const status = allDone ? 'approved' : 'pending';
       return {
         id: String(e?.id ?? idx),
@@ -202,15 +245,19 @@ export default function InboxTable({
         from,
         receivedAt,
         status,
+        codeOfConduct: Boolean(e?.codeOfConduct),
+        nda: Boolean(e?.nda),
+        offerLetter: Boolean(e?.offerLetter),
         _raw: e,
       };
     });
-  }
+  }, []);
 
   // Initial load
   useEffect(() => {
     if (Array.isArray(items)) {
-      setRows(items);
+      // If parent controls items, just mirror them into component rows
+      setRows(transformEntriesToRows(items));
       return;
     }
     const initial = safeGetLocal(storageKey, []);
@@ -225,9 +272,8 @@ export default function InboxTable({
       }
     }
     setRows(transformEntriesToRows(initial));
-    isMountedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, storageKey, safeGetLocal]);
+  }, [items, storageKey, safeGetLocal, transformEntriesToRows]);
 
   // Listen to storage changes to refresh data across tabs
   useEffect(() => {
@@ -241,7 +287,40 @@ export default function InboxTable({
 
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, [storageKey, safeGetLocal]);
+  }, [storageKey, safeGetLocal, transformEntriesToRows]);
+
+  // PUBLIC_INTERFACE
+  const toggleProvided = useCallback(
+    (rowId, field) => {
+      // field should be one of 'codeOfConduct' | 'nda' | 'offerLetter'
+      if (typeof window === 'undefined') return;
+
+      // Read from storage, robustly
+      let current = safeGetLocal(storageKey, []);
+      // Find the entry by matching id (string/number) or fallback by index
+      const idx = current.findIndex((e, i) => String(e?.id ?? i) === String(rowId));
+      if (idx === -1) return;
+
+      // Immutable update of the specific boolean field
+      const oldEntry = current[idx] || {};
+      const nextValue = !Boolean(oldEntry[field]);
+      const updatedEntry = { ...oldEntry, [field]: nextValue };
+
+      // Write back immutably
+      const nextArray = [...current];
+      nextArray[idx] = updatedEntry;
+
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(nextArray));
+      } catch {
+        // ignore storage errors
+      }
+
+      // Update local state
+      setRows(transformEntriesToRows(nextArray));
+    },
+    [safeGetLocal, storageKey, transformEntriesToRows]
+  );
 
   const hasData = rows && rows.length > 0;
 
@@ -285,7 +364,7 @@ export default function InboxTable({
             width: '100%',
             borderCollapse: 'separate',
             borderSpacing: 0,
-            minWidth: 720,
+            minWidth: 920,
           }}
         >
           <thead>
@@ -378,6 +457,10 @@ export default function InboxTable({
                   from={it.from}
                   receivedAt={it.receivedAt}
                   status={it.status}
+                  codeOfConduct={it.codeOfConduct}
+                  nda={it.nda}
+                  offerLetter={it.offerLetter}
+                  onToggleDoc={toggleProvided}
                   onView={() => onView?.(it._raw ?? it)}
                   onApprove={() => onApprove?.(it._raw ?? it)}
                   onReject={() => onReject?.(it._raw ?? it)}

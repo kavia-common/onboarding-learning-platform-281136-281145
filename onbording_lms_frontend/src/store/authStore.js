@@ -192,6 +192,7 @@ export function AuthProvider({ children }) {
        * login
        * Local-only login against stored users.
        * Returns true on success or false on invalid credentials.
+       * Also sets currentUser with role and persists session in localStorage (STORAGE_KEY).
        */
       const e = String(email || '').trim().toLowerCase();
       const p = String(password || '');

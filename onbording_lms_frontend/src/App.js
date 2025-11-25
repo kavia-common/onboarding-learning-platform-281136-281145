@@ -292,6 +292,9 @@ function AdminRouteGuard({ children }) {
   const { user, currentUserIsAdmin, loading } = useAuth();
   const location = useLocation();
 
+  // Debug logs to inspect control flow and auth state
+  console.log('[AdminRouteGuard] loading:', loading, 'user:', user, 'role:', user?.role, 'derivedAdmin:', currentUserIsAdmin);
+
   // While auth is initializing (seeding admin and restoring session), don't redirect
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading authentication…</div>;

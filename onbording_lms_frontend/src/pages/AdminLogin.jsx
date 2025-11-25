@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { useLocation, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../store/authStore';
 
 /**
@@ -18,6 +18,7 @@ export default function AdminLogin() {
   const [pwd, setPwd] = useState('Pallavi@123');
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [redirect, setRedirect] = useState(false); // fallback flag for <Navigate />
 
   // Respect intended redirect path if present
   const from = location.state?.from?.pathname || '/admin';
@@ -34,8 +35,14 @@ export default function AdminLogin() {
       const result = await login(email, pwd);
       console.debug('[AdminLogin] login result:', result);
       if (result === true) {
-        // Navigate via SPA router to keep app state intact
-        navigate(from, { replace: true });
+        // Log right before navigate for tracing
+        console.log('[AdminLogin] Successful login. Navigating to', from);
+        try {
+          navigate(from, { replace: true });
+        } catch (navErr) {
+          console.warn('[AdminLogin] navigate() threw, falling back to <Navigate />:', navErr);
+          setRedirect(true);
+        }
         return;
       }
       // Handle structured error or generic failure
@@ -51,6 +58,11 @@ export default function AdminLogin() {
       setSubmitting(false);
     }
   };
+
+  // Fallback rendering if router context was incorrect and navigate() didn't take effect
+  if (redirect) {
+    return <Navigate to={from} replace />;
+  }
 
   return (
     <main style={{ padding: 20 }}>

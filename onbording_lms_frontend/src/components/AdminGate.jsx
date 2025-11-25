@@ -10,6 +10,8 @@ import { useAuth } from '../store/authStore';
 export default function AdminGate({ children, fallback = null }) {
   const { currentUserIsAdmin, loading } = useAuth();
 
+  console.log('[AdminGate] loading:', loading, 'isAdmin:', currentUserIsAdmin);
+
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading...</div>;
   }

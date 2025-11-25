@@ -9,7 +9,7 @@ import { useAuth } from '../store/authStore';
  * Displays navigation cards to Users, Documents, and Settings.
  */
 export default function AdminDashboard() {
-  const { user, currentUserIsAdmin } = useAuth();
+  const { user, currentUserIsAdmin, loading } = useAuth();
   const [inbox, setInbox] = useState([]);
 
   useEffect(() => {
@@ -21,6 +21,10 @@ export default function AdminDashboard() {
       setInbox([]);
     }
   }, []);
+
+  if (loading) {
+    return <div style={{ padding: '1rem' }}>Loading authentication…</div>;
+  }
 
   const isAdmin = Boolean(user && (user.role === 'admin' || currentUserIsAdmin === true));
   const shouldRedirect = !user || !isAdmin;

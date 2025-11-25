@@ -1,19 +1,17 @@
 import React from 'react';
-import { useAuth } from '../store/authStore';
+import useAuthStore from '../store/authStore';
 
 /**
  * PUBLIC_INTERFACE
- * AdminGate
- * Renders children only if the authenticated user is considered admin.
- * Uses useAuth() context, which derives currentUserIsAdmin from localStorage override
- * (via isAdminEmail) or user.role === 'admin' depending on auth state.
- *
- * @param {React.ReactNode} children - Content to render when authorized
- * @param {React.ReactNode} [fallback=null] - Optional fallback when not authorized
- * @returns {JSX.Element}
+ * AdminGate component: Renders children only if currentUserIsAdmin is true.
+ * Otherwise, displays a minimal "Not authorized" message.
+ * Intended for client-side, non-secure gating for local/dev usage.
  */
 export default function AdminGate({ children, fallback = null }) {
-  const { currentUserIsAdmin, loading } = useAuth();
+  const { currentUserIsAdmin, loading } = useAuthStore((s) => ({
+    currentUserIsAdmin: s.currentUserIsAdmin,
+    loading: s.loading,
+  }));
 
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading...</div>;

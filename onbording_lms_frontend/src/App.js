@@ -15,8 +15,12 @@ import Navbar from './components/layout/Navbar.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
-
 import Profile from './pages/Profile.jsx';
+
+// Newly added admin pages
+import AdminUsers from './pages/admin/AdminUsers.jsx';
+import AdminDocuments from './pages/admin/AdminDocuments.jsx';
+import AdminSettings from './pages/admin/AdminSettings.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
 
@@ -50,7 +54,6 @@ function Login() {
         push({ type: 'success', message: 'Logged in' });
         window.location.replace(from);
       } else if (result && result.ok === false && result.message) {
-        // Supabase-style error surfaced
         setErrorText(result.message);
         push({ type: 'error', message: result.message });
       } else {
@@ -201,7 +204,6 @@ function Logout() {
   // Always call hooks, then handle side-effects/redirects
   useEffect(() => {
     if (PREVIEW_ONLY) {
-      // In preview mode, send to /documents
       window.location.replace('/documents');
       return;
     }
@@ -211,8 +213,6 @@ function Logout() {
 
   return <main style={{ padding: 20 }} aria-live="polite">Logging out…</main>;
 }
-
-/* Catalog, Course, and Dashboard components removed */
 
 // Onboarding wizard integrating Documents step
 function OnboardingWizard() {
@@ -271,171 +271,6 @@ function AdminRouteGuard({ children }) {
     return <Navigate to="/admin/login" replace />;
   }
   return children;
-}
-
-// PUBLIC_INTERFACE
-function AdminPage() {
-  /** Admin page including Role Management and inbox view */
-  const { user, updateCurrentUserRole, getCurrentUserRole } = useAuth();
-  const { push } = useToast();
-  const [inbox, setInbox] = useState([]);
-  const [roleLoading, setRoleLoading] = useState(false);
-  const [currentRole, setCurrentRole] = useState(user?.role || 'user');
-
-  useEffect(() => {
-    // Load inbox
-    try {
-      const raw = window.localStorage.getItem('dt3_admin_inbox');
-      const parsed = raw ? JSON.parse(raw) : [];
-      setInbox(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setInbox([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Refresh role from Supabase metadata (if available)
-    let alive = true;
-    (async () => {
-      try {
-        const r = await getCurrentUserRole();
-        if (alive) setCurrentRole(r);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => { alive = false; };
-  }, [getCurrentUserRole]);
-
-  const onChangeRole = async (e) => {
-    const newRole = e.target.value === 'admin' ? 'admin' : 'user';
-    setRoleLoading(true);
-    try {
-      const res = await updateCurrentUserRole(newRole);
-      if (res?.ok) {
-        setCurrentRole(newRole);
-        push({ type: 'success', message: `Role updated to ${newRole}` });
-      } else {
-        push({ type: 'error', message: res?.message || 'Failed to update role' });
-      }
-    } finally {
-      setRoleLoading(false);
-    }
-  };
-
-  const empty = inbox.length === 0;
-
-  return (
-    <main style={{ padding: 20, display: 'grid', gap: 12 }}>
-      <section className="card" aria-label="Role Management" style={{ padding: 16, display: 'grid', gap: 12 }}>
-        <h1 style={{ margin: 0 }}>Admin</h1>
-        <div style={{ color: 'var(--text-secondary)' }}>
-          Manage your role for this session. This app runs fully in the browser and stores roles locally for demo purposes.
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Signed in as</div>
-            <div style={{ fontWeight: 600 }}>{user?.email}</div>
-          </div>
-          <div aria-hidden="true" style={{ height: 24, width: 1, background: 'var(--border-color)' }} />
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Current role</span>
-            <select
-              value={currentRole}
-              onChange={onChangeRole}
-              disabled={roleLoading}
-              aria-label="Select role for current user"
-              style={{
-                padding: '8px 10px',
-                borderRadius: 10,
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                minWidth: 160,
-              }}
-            >
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-          </label>
-        </div>
-        <div role="note" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Admin-only access to this page is enforced by route guard (app_role === 'admin').
-        </div>
-      </section>
-
-      <div className="card" style={{ padding: 16, marginBottom: 12 }}>
-        <h2 style={{ marginTop: 0 }}>Admin Inbox</h2>
-        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-          Showing latest submissions from employees. Data is stored locally in your browser under key "dt3_admin_inbox".
-        </p>
-      </div>
-
-      {empty ? (
-        <div className="card" role="status" style={{ padding: 16 }}>
-          No submissions yet.
-        </div>
-      ) : (
-        <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-              <thead>
-                <tr style={{ background: 'linear-gradient(90deg, rgba(37,99,235,0.08), rgba(249,250,251,0.6))' }}>
-                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted By</th>
-                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Submitted At</th>
-                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Code of Conduct</th>
-                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>NDA</th>
-                  <th style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid var(--border-color)' }}>Offer Letter</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inbox.map((entry, idx) => {
-                  const ts = entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : '—';
-                  const coc = entry.codeOfConduct;
-                  const nda = entry.nda;
-                  const offer = entry.offerLetter;
-                  return (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: 12 }}>{entry.submittedBy || 'Unknown'}</td>
-                      <td style={{ padding: 12, color: 'var(--text-secondary)' }}>{ts}</td>
-                      <td style={{ padding: 12 }}>
-                        <DocPreview doc={coc} title="Code of Conduct" />
-                      </td>
-                      <td style={{ padding: 12 }}>
-                        <DocPreview doc={nda} title="NDA" />
-                      </td>
-                      <td style={{ padding: 12 }}>
-                        <DocPreview doc={offer} title="Offer Letter" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-    </main>
-  );
-}
-
-// Helper to present a doc block with signature info and optional image
-function DocPreview({ doc, title }) {
-  if (!doc) return <span style={{ color: 'var(--text-secondary)' }}>No data</span>;
-  return (
-    <div style={{ display: 'grid', gap: 6 }}>
-      <div style={{ fontWeight: 600 }}>{title}</div>
-      {doc.signatureName && <div>Signed by: {doc.signatureName}</div>}
-      {doc.acceptedAt && <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Accepted: {new Date(doc.acceptedAt).toLocaleString()}</div>}
-      {/* Signature images if present */}
-      {doc.signatureImage && (
-        <img
-          src={doc.signatureImage}
-          alt={`${title} signature`}
-          style={{ maxHeight: 70, border: '1px solid var(--border-color)', borderRadius: 8, padding: 2, background: 'var(--bg-secondary)' }}
-        />
-      )}
-    </div>
-  );
 }
 
 // PUBLIC_INTERFACE
@@ -539,14 +374,40 @@ function App() {
                         </AdminRouteGuard>
                       }
                     />
-                    <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
+                    <Route
+                      path="/admin/users"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminUsers />
+                        </AdminRouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/documents"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminDocuments />
+                        </AdminRouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/settings"
+                      element={
+                        <AdminRouteGuard>
+                          <AdminSettings />
+                        </AdminRouteGuard>
+                      }
+                    />
 
+                    <Route path="/onboarding" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <OnboardingWizard />} />
 
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/login" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Login />} />
                     <Route path="/register" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Register />} />
                     <Route path="/logout" element={PREVIEW_ONLY ? <Navigate to="/documents" replace /> : <Logout />} />
-                    <Route path="*" element={<Navigate to={PREVIEW_ONLY ? '/documents' : '/'} replace />} />
+                    <Route path="*"
+                      element={<Navigate to={PREVIEW_ONLY ? '/documents' : '/'} replace />}
+                    />
                   </Routes>
                 </Router>
               </div>

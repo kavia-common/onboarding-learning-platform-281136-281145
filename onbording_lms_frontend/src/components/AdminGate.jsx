@@ -1,5 +1,5 @@
 import React from 'react';
-import useAuthStore from '../store/authStore';
+import { useAuth } from '../store/authStore';
 
 /**
  * PUBLIC_INTERFACE
@@ -8,10 +8,7 @@ import useAuthStore from '../store/authStore';
  * Intended for client-side, non-secure gating for local/dev usage.
  */
 export default function AdminGate({ children, fallback = null }) {
-  const { currentUserIsAdmin, loading } = useAuthStore((s) => ({
-    currentUserIsAdmin: s.currentUserIsAdmin,
-    loading: s.loading,
-  }));
+  const { currentUserIsAdmin, loading } = useAuth();
 
   if (loading) {
     return <div style={{ padding: '1rem' }}>Loading...</div>;

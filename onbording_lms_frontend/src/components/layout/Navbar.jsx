@@ -47,7 +47,11 @@ export default function Navbar() {
 
             <NavLink to="/documents" style={linkStyle}>Documents</NavLink>
             <NavLink to="/profile" style={linkStyle}>Profile</NavLink>
-            {isAdmin && <NavLink to="/admin" style={linkStyle}>Admin</NavLink>}
+            {/* Admin link behavior:
+               - If admin: go to /admin
+               - If not admin: go to /admin/login
+            */}
+            <NavLink to={isAdmin ? "/admin" : "/admin/login"} style={linkStyle}>Admin</NavLink>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -5,7 +5,8 @@ const STORAGE_KEY = 'lms_auth';
 const USERS_KEY = 'lms_users_v1'; // local user registry (frontend-only)
 const ADMIN_SEED_FLAG = 'dt3_admin_seeded_v1';
 
-// Simple demo digest (NOT secure; demo only)
+// Simple demo digest (NOT secure; demo only). Do NOT use in production.
+// This is provided to avoid storing plaintext; it is not cryptographically secure.
 function demoDigest(input) {
   try {
     const data = String(input || '');
@@ -57,25 +58,60 @@ export function AuthProvider({ children }) {
     setCurrentUserIsAdmin(!!isAdmin);
   }, []);
 
-  // Seed a default admin if none exists and attempt to restore session
+  // PUBLIC_INTERFACE
+  const seedAdminIfNeeded = useCallback(() => {
+    /**
+     * PUBLIC_INTERFACE
+     * seedAdminIfNeeded
+     * Seeds demo admin accounts locally if not already seeded:
+     *  - Primary requested admin: abburi@kavia.com / Pallavi@123
+     *  - Legacy fallback admin for dev: admin@dt3.local / admin123
+     * Credentials are stored with a demo digest and are for demo only.
+     */
+    const users = loadUsers();
+    let changed = false;
+
+    // Requested seed
+    const seedEmail = 'abburi@kavia.com';
+    if (!users[seedEmail]) {
+      users[seedEmail] = {
+        id: `local-admin-${Date.now()}-abburi`,
+        email: seedEmail,
+        name: 'Admin',
+        passwordHash: demoDigest('Pallavi@123'),
+        createdAt: new Date().toISOString(),
+        role: 'admin',
+      };
+      changed = true;
+    }
+
+    // Optional legacy seed retained for local convenience
+    const legacyEmail = 'admin@dt3.local';
+    if (!users[legacyEmail]) {
+      users[legacyEmail] = {
+        id: `local-admin-${Date.now()}-legacy`,
+        email: legacyEmail,
+        name: 'DT3 Admin',
+        passwordHash: demoDigest('admin123'),
+        createdAt: new Date().toISOString(),
+        role: 'admin',
+      };
+      changed = true;
+    }
+
+    if (changed) {
+      saveUsers(users);
+    }
+    // Mark seeded
+    window.localStorage.setItem(ADMIN_SEED_FLAG, 'true');
+  }, []);
+
+  // Seed admins and restore session
   useEffect(() => {
     try {
       const alreadySeeded = window.localStorage.getItem(ADMIN_SEED_FLAG);
-      const users = loadUsers();
-      const hasAdmin = Object.values(users).some((u) => u?.role === 'admin');
-      if (!alreadySeeded && !hasAdmin) {
-        const adminEmail = 'admin@dt3.local';
-        const adminUser = {
-          id: `local-admin-${Date.now()}`,
-          email: adminEmail,
-          name: 'DT3 Admin',
-          passwordHash: demoDigest('admin123'),
-          createdAt: new Date().toISOString(),
-          role: 'admin',
-        };
-        users[adminEmail] = adminUser;
-        saveUsers(users);
-        window.localStorage.setItem(ADMIN_SEED_FLAG, 'true');
+      if (!alreadySeeded) {
+        seedAdminIfNeeded();
       }
 
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -91,7 +127,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [recomputeAdmin]);
+  }, [recomputeAdmin, seedAdminIfNeeded]);
 
   const persist = useCallback((next) => {
     try {

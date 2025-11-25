@@ -13,13 +13,12 @@ import NDAAgreement from './pages/NDAAgreement.jsx';
 import OfferLetter from './pages/OfferLetter.jsx';
 import Navbar from './components/layout/Navbar.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-
+import AdminLogin from './pages/AdminLogin.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 
 import Profile from './pages/Profile.jsx';
 
 const PREVIEW_ONLY = String(process.env.REACT_APP_PREVIEW_DOCUMENTS_ONLY || '').toLowerCase() === 'true';
-
-
 
 function Footer() {
   return (
@@ -28,8 +27,6 @@ function Footer() {
     </footer>
   );
 }
-
-
 
 // Auth pages
 function Login() {
@@ -268,10 +265,10 @@ function OnboardingWizard() {
 
 function AdminRouteGuard({ children }) {
   // PUBLIC_INTERFACE
-  /** Guard that allows only admin users */
+  /** Guard that allows only admin users, else redirects to /admin/login */
   const { user, currentUserIsAdmin } = useAuth();
   if (!user || (user.role !== 'admin' && currentUserIsAdmin !== true)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
   return children;
 }
@@ -533,11 +530,12 @@ function App() {
                     <Route path="/code-of-conduct" element={<CodeOfConduct />} />
                     <Route path="/nda" element={<NDAAgreement />} />
                     <Route path="/offer-letter" element={<OfferLetter />} />
+                    <Route path="/admin/login" element={<AdminLogin />} />
                     <Route
                       path="/admin"
                       element={
                         <AdminRouteGuard>
-                          <AdminPage />
+                          <AdminDashboard />
                         </AdminRouteGuard>
                       }
                     />

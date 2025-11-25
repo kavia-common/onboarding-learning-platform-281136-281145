@@ -208,7 +208,8 @@ export default function InboxTable({
   onView,
   onApprove,
   onReject,
-  storageKey = 'admin_inbox',
+  // Default to new storage key. We still support reading old data for auto-migration on first load.
+  storageKey = 'admin_inbox_v2',
 }) {
   // If parent passes items we prioritize them; otherwise load from localStorage.
   const [rows, setRows] = useState(Array.isArray(items) ? items : []);
@@ -229,6 +230,60 @@ export default function InboxTable({
       },
     []
   );
+
+  // New storage key for admin inbox data
+  const INBOX_KEY_NEW = 'admin_inbox_v2';
+  const INBOX_KEY_OLD = 'admin_inbox';
+
+  // PUBLIC_INTERFACE
+  function isValidInboxArray(arr) {
+    /** Checks that arr is an array of objects with the expected flat schema:
+     *  { email, submittedAt, codeOfConduct, nda, offerLetter }
+     */
+    if (!Array.isArray(arr)) return false;
+    return arr.every((e) => {
+      if (e && typeof e === 'object') {
+        const emailOk = typeof e.email === 'string' || typeof e.from === 'string';
+        const submittedOk = typeof e.submittedAt === 'string' || typeof e.receivedAt === 'string' || typeof e.submittedAt === 'number';
+        const cocOk = typeof e.codeOfConduct === 'boolean' || e.codeOfConduct === undefined;
+        const ndaOk = typeof e.nda === 'boolean' || e.nda === undefined;
+        const offerOk = typeof e.offerLetter === 'boolean' || e.offerLetter === undefined;
+        return emailOk && submittedOk && cocOk && ndaOk && offerOk;
+      }
+      return false;
+    });
+  }
+
+  // Attempt migration from old key to new key if needed (runs only on client)
+  const tryMigrateInbox = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+
+    const alreadyNew = safeGetLocal(INBOX_KEY_NEW, null);
+    if (Array.isArray(alreadyNew)) {
+      return alreadyNew;
+    }
+
+    // No new data, check old key
+    const oldData = safeGetLocal(INBOX_KEY_OLD, null);
+    if (isValidInboxArray(oldData)) {
+      try {
+        // Inline migration note:
+        // We migrate from 'admin_inbox' to 'admin_inbox_v2' by copying the parsed array as-is.
+        window.localStorage.setItem(INBOX_KEY_NEW, JSON.stringify(oldData));
+      } catch {
+        // ignore write failures
+      }
+      return oldData;
+    }
+
+    // Neither available -> seed empty array under new key
+    try {
+      window.localStorage.setItem(INBOX_KEY_NEW, JSON.stringify([]));
+    } catch {
+      // ignore write failures
+    }
+    return [];
+  }, [safeGetLocal]);
 
   // Transform admin_inbox entries into table rows
   const transformEntriesToRows = useCallback((entries) => {
@@ -260,20 +315,12 @@ export default function InboxTable({
       setRows(transformEntriesToRows(items));
       return;
     }
-    const initial = safeGetLocal(storageKey, []);
-    // Optionally seed empty array if not present
-    if (typeof window !== 'undefined') {
-      try {
-        if (!window.localStorage.getItem(storageKey)) {
-          window.localStorage.setItem(storageKey, JSON.stringify([]));
-        }
-      } catch {
-        // ignore write errors
-      }
-    }
-    setRows(transformEntriesToRows(initial));
+
+    // Always prefer the new key, with auto-migration from old on first load
+    const initialEntries = tryMigrateInbox();
+    setRows(transformEntriesToRows(initialEntries));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, storageKey, safeGetLocal, transformEntriesToRows]);
+  }, [items, storageKey, safeGetLocal, transformEntriesToRows, tryMigrateInbox]);
 
   // Listen to storage changes to refresh data across tabs
   useEffect(() => {
@@ -296,6 +343,7 @@ export default function InboxTable({
       if (typeof window === 'undefined') return;
 
       // Read from storage, robustly
+      // Always read from the provided storageKey (defaults to 'admin_inbox_v2')
       let current = safeGetLocal(storageKey, []);
       // Find the entry by matching id (string/number) or fallback by index
       const idx = current.findIndex((e, i) => String(e?.id ?? i) === String(rowId));
